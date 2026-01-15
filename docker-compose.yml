@@ -1,0 +1,16 @@
+services:
+  db:
+    image: postgres:15
+    container_name: flowlance_db_container
+    restart: always
+    environment:
+      - POSTGRES_DB=flowlance_db
+      - POSTGRES_USER=admin
+      - POSTGRES_PASSWORD=password
+    ports:
+      - "5432:5432"
+    volumes:
+      - flowlance_postgres_data:/var/lib/postgresql/data
+
+volumes:
+  flowlance_postgres_data:
