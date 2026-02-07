@@ -14,6 +14,12 @@ class User(AbstractUser):
     def __str__(self):
         return f"{self.username} ({self.role})"
 
+class Sector(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+
+    def __str__(self):
+        return self.name
+
 class FreeLanceProfile(models.Model):
 
     gender_choices = (
@@ -21,18 +27,25 @@ class FreeLanceProfile(models.Model):
         ('F', 'Female'),
         ('X', 'Other')
     )
+    availability_choices = (
+        ('FULL', 'Temps plein'),
+        ('PART', 'Temps partiel'),
+        ('NONE', 'Indisponible')
+    )
 
-    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='freelance_profile')
 
-    age = models.PositiveIntegerField(null=False, blank=False)
-    gender = models.CharField(choices=gender_choices, blank=False, null=False)
+    birth_date = models.DateField(null=False, blank=False)
+    gender = models.CharField(choices=gender_choices,max_length=1, blank=False, null=False)
     location = models.CharField(max_length=200)
     full_remote = models.BooleanField(default=False)
     enterprise_number = models.CharField(max_length=50, blank=True, help_text="N° de TVA ou Entreprise")
     github_url = models.URLField(max_length=255,null=True, blank=True)
     linkedin_url = models.URLField(max_length=255,null=True, blank=True)
     website_url = models.URLField(max_length=255,null=True, blank=True)
-    availability = models.BooleanField(default=True)
+    availability = models.CharField(choices=availability_choices, max_length=4)
+    is_active = models.BooleanField(default=True)
+    sectors = models.ManyToManyField(Sector, related_name='freelances', blank=True)
 
     cv_file = models.FileField(upload_to='cv_files/', null=True, blank=True)
 
@@ -40,13 +53,23 @@ class FreeLanceProfile(models.Model):
         return f"Freelance: {self.user.username}"
 
 class SoftSkills(models.Model):
-    profile = models.ForeignKey(FreeLanceProfile, on_delete=models.CASCADE)
+    profile = models.ForeignKey(FreeLanceProfile, on_delete=models.CASCADE, related_name='soft_skills')
     name = models.CharField(max_length=100)
 
 class HardSkills(models.Model):
-    profile = models.ForeignKey(FreeLanceProfile, on_delete=models.CASCADE)
+    sector = models.ForeignKey(Sector, on_delete=models.CASCADE, related_name='skills')
     name = models.CharField(max_length=100)
+
+    def __str__(self):
+        return f"{self.name} ({self.sector.name})"
+
+class FreelanceSkill(models.Model):
+    profile = models.ForeignKey(FreeLanceProfile, on_delete=models.CASCADE, related_name='skill_levels')
+    skill = models.ForeignKey(HardSkills, on_delete=models.CASCADE)
     level = models.PositiveSmallIntegerField(help_text="Niveau de 1 à 5")
+
+    class Meta:
+        unique_together = ('profile', 'skill')
 
 class Education(models.Model):
     degree_choices = (
@@ -77,7 +100,7 @@ class Certification(models.Model):
             return False
         return self.is_verified
 
-class DriverLicense(models.Model):
+class License(models.Model):
     license_types = (
         ('AM', 'Cyclomoteur'), ('A', 'Moto'), ('B', 'Auto'),
         ('C', 'Poids Lourds'), ('D', 'Transport personnes'),
@@ -85,7 +108,7 @@ class DriverLicense(models.Model):
         ('CACES_3', 'Chariot R489 C3'), ('ENGIN', 'Engin de chantier'),
         ('AUTRE', 'Autre')
     )
-    profile = models.ForeignKey(FreeLanceProfile, on_delete=models.CASCADE)
+    profile = models.ForeignKey(FreeLanceProfile, on_delete=models.CASCADE, related_name='licenses')
     license_type = models.CharField(max_length=20, choices=license_types)
     valid_until = models.DateField(null=True, blank=True)
     proof_file = models.FileField(upload_to='licenses/', null=True, blank=True)
@@ -101,17 +124,40 @@ class Language(models.Model):
     level_choices = (
         ('A1', 'Débutant'), ('A2', 'Élémentaire'),
         ('B1', 'Intermédiaire'), ('B2', 'Avancé'),
-        ('C1', 'Autonome'), ('C2', 'Maîtrise/Maternel'),
+        ('C1', 'Autonome'), ('LM', 'Langue Maternelle'),
     )
     profile = models.ForeignKey(FreeLanceProfile, on_delete=models.CASCADE)
     language = models.CharField(max_length=50)
-    level = models.CharField(choices=level_choices, default='')
+    level = models.CharField(choices=level_choices, max_length=2)
 
 class CompanyProfile(models.Model):
-    user = models.OneToOneField(User, on_delete=models.CASCADE)
-    availability = models.BooleanField(default=True)
-    company_name = models.CharField(max_length=200)
 
+    SIZE_CHOICES = (
+            ('SMALL', '1-10 employés'),
+            ('MEDIUM', '11-50 employés'),
+            ('LARGE', '50-250 employés'),
+            ('CORP', 'Plus de 250 employés'),
+    )
+
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='company_profile')
+    logo = models.ImageField(upload_to='company_logos/', null=True, blank=True)
+    company_size = models.CharField(max_length=10, choices=SIZE_CHOICES)
+    company_name = models.CharField(max_length=200)
+    company_street = models.CharField(max_length=200)
+    company_number = models.CharField(max_length=10)
+    company_postcode = models.CharField(max_length=200)
+    company_city = models.CharField(max_length=200)
+    company_country = models.CharField(max_length=200, default='Belgique')
+    company_phone = models.CharField(max_length=20, blank=True)
+    company_email = models.EmailField(max_length=255, blank=True)
+    company_linkedin = models.URLField(max_length=255, null=True, blank=True)
+    company_description = models.TextField(blank=True, help_text="Présentation de l'entreprise et de sa culture")
+    company_website = models.URLField(max_length=255, null=True, blank=True)
+    company_TVA = models.CharField(max_length=50, blank=True, verbose_name="N° de TVA")
+    company_BCE = models.CharField(max_length=50, blank=True, verbose_name="N° BCE")
+    sectors = models.ManyToManyField(Sector, related_name='companies', blank=True)
+    is_verified = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=True)
 
     def __str__(self):
         return f"Company: {self.company_name}"
