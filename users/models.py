@@ -1,3 +1,4 @@
+from django.core.validators import MinValueValidator, MaxValueValidator
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from datetime import date
@@ -20,6 +21,19 @@ class Sector(models.Model):
     def __str__(self):
         return self.name
 
+class SoftSkills(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+
+    def __str__(self):
+        return self.name
+
+class HardSkills(models.Model):
+    sector = models.ForeignKey(Sector, on_delete=models.CASCADE, related_name='skills')
+    name = models.CharField(max_length=100)
+
+    def __str__(self):
+        return f"{self.name} ({self.sector.name})"
+
 class FreeLanceProfile(models.Model):
 
     gender_choices = (
@@ -33,43 +47,51 @@ class FreeLanceProfile(models.Model):
         ('NONE', 'Indisponible')
     )
 
-    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='freelance_profile')
+    freelance_user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='freelance_profile')
+    freelance_birth_date = models.DateField()
 
-    birth_date = models.DateField(null=False, blank=False)
-    gender = models.CharField(choices=gender_choices,max_length=1, blank=False, null=False)
-    location = models.CharField(max_length=200)
-    full_remote = models.BooleanField(default=False)
-    enterprise_number = models.CharField(max_length=50, blank=True, help_text="N° de TVA ou Entreprise")
-    github_url = models.URLField(max_length=255,null=True, blank=True)
-    linkedin_url = models.URLField(max_length=255,null=True, blank=True)
-    website_url = models.URLField(max_length=255,null=True, blank=True)
-    availability = models.CharField(choices=availability_choices, max_length=4)
-    is_active = models.BooleanField(default=True)
-    sectors = models.ManyToManyField(Sector, related_name='freelances', blank=True)
+    @property
+    def age(self):
+        today = date.today()
+        birth = self.freelance_birth_date
+        return (
+                today.year - birth.year
+                - ((today.month, today.day) < (birth.month, birth.day))
+        )
 
-    cv_file = models.FileField(upload_to='cv_files/', null=True, blank=True)
-
-    def __str__(self):
-        return f"Freelance: {self.user.username}"
-
-class SoftSkills(models.Model):
-    profile = models.ForeignKey(FreeLanceProfile, on_delete=models.CASCADE, related_name='soft_skills')
-    name = models.CharField(max_length=100)
-
-class HardSkills(models.Model):
-    sector = models.ForeignKey(Sector, on_delete=models.CASCADE, related_name='skills')
-    name = models.CharField(max_length=100)
+    freelance_gender = models.CharField(choices=gender_choices,max_length=1, blank=False, null=False)
+    freelance_location = models.CharField(max_length=200)
+    freelance_full_remote = models.BooleanField(default=False)
+    freelance_enterprise_number = models.CharField(max_length=50, blank=True, help_text="N° de TVA ou Entreprise")
+    freelance_github_url = models.URLField(max_length=255,null=True, blank=True)
+    freelance_linkedin_url = models.URLField(max_length=255,null=True, blank=True)
+    freelance_website_url = models.URLField(max_length=255,null=True, blank=True)
+    freelance_availability = models.CharField(choices=availability_choices, max_length=4)
+    freelance_is_active = models.BooleanField(default=True)
+    freelance_sectors = models.ManyToManyField(Sector, related_name='freelances', blank=True)
+    freelance_soft_skills = models.ManyToManyField(SoftSkills, related_name='freelances', blank=True)
+    freelance_cv_file = models.FileField(upload_to='cv_files/', null=True, blank=True)
 
     def __str__(self):
-        return f"{self.name} ({self.sector.name})"
+        return f"Freelance: {self.freelance_user.username}"
+
 
 class FreelanceSkill(models.Model):
     profile = models.ForeignKey(FreeLanceProfile, on_delete=models.CASCADE, related_name='skill_levels')
     skill = models.ForeignKey(HardSkills, on_delete=models.CASCADE)
-    level = models.PositiveSmallIntegerField(help_text="Niveau de 1 à 5")
-
+    level = models.PositiveSmallIntegerField(
+        default=0,
+        validators=[
+            MinValueValidator(0),
+            MaxValueValidator(5)
+        ],
+        help_text="Niveau de 0 à 5"
+    )
     class Meta:
         unique_together = ('profile', 'skill')
+
+    def __str__(self):
+        return f"{self.skill.name} : {self.level}/5"
 
 class Education(models.Model):
     degree_choices = (
@@ -139,8 +161,8 @@ class CompanyProfile(models.Model):
             ('CORP', 'Plus de 250 employés'),
     )
 
-    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='company_profile')
-    logo = models.ImageField(upload_to='company_logos/', null=True, blank=True)
+    company_user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='company_profile')
+    company_logo = models.ImageField(upload_to='company_logos/', null=True, blank=True)
     company_size = models.CharField(max_length=10, choices=SIZE_CHOICES)
     company_name = models.CharField(max_length=200)
     company_street = models.CharField(max_length=200)
@@ -155,9 +177,23 @@ class CompanyProfile(models.Model):
     company_website = models.URLField(max_length=255, null=True, blank=True)
     company_TVA = models.CharField(max_length=50, blank=True, verbose_name="N° de TVA")
     company_BCE = models.CharField(max_length=50, blank=True, verbose_name="N° BCE")
-    sectors = models.ManyToManyField(Sector, related_name='companies', blank=True)
-    is_verified = models.BooleanField(default=False)
-    is_active = models.BooleanField(default=True)
+    company_sectors = models.ManyToManyField(Sector, related_name='companies', blank=True)
+    company_is_verified = models.BooleanField(default=False)
+    company_is_active = models.BooleanField(default=True)
 
     def __str__(self):
         return f"Company: {self.company_name}"
+
+class JobOffer(models.Model):
+    offer_company = models.ForeignKey(CompanyProfile, on_delete=models.CASCADE, related_name='job_offers')
+    offer_location = models.CharField(max_length=200)
+    offer_title = models.CharField(max_length=200)
+    offer_description = models.TextField()
+    offer_sector = models.ForeignKey(Sector, on_delete=models.SET_NULL, null=True)
+    offer_hardskills = models.ManyToManyField(HardSkills, related_name='required_hardskills', blank=True)
+    offer_softskills = models.ManyToManyField(SoftSkills, related_name='required_softskills', blank=True)
+    offer_created_at = models.DateTimeField(auto_now_add=True)
+    offer_is_active = models.BooleanField(default=True)
+
+    def __str__(self):
+        return f"{self.offer_title} - {self.offer_company.company_name}"
