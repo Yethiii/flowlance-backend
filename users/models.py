@@ -48,7 +48,7 @@ class FreeLanceProfile(models.Model):
     )
 
     freelance_user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='freelance_profile')
-    freelance_birth_date = models.DateField()
+    freelance_birth_date = models.DateField(null=True, blank=True)
 
     @property
     def age(self):
@@ -59,14 +59,14 @@ class FreeLanceProfile(models.Model):
                 - ((today.month, today.day) < (birth.month, birth.day))
         )
 
-    freelance_gender = models.CharField(choices=gender_choices,max_length=1, blank=False, null=False)
+    freelance_gender = models.CharField(choices=gender_choices,max_length=1, blank=True, null=True)
     freelance_location = models.CharField(max_length=200)
     freelance_full_remote = models.BooleanField(default=False)
     freelance_enterprise_number = models.CharField(max_length=50, blank=True, help_text="N° de TVA ou Entreprise")
     freelance_github_url = models.URLField(max_length=255,null=True, blank=True)
     freelance_linkedin_url = models.URLField(max_length=255,null=True, blank=True)
     freelance_website_url = models.URLField(max_length=255,null=True, blank=True)
-    freelance_availability = models.CharField(choices=availability_choices, max_length=4)
+    freelance_availability = models.CharField(choices=availability_choices, max_length=4, blank=True, null=True)
     freelance_is_active = models.BooleanField(default=True)
     freelance_sectors = models.ManyToManyField(Sector, related_name='freelances', blank=True)
     freelance_soft_skills = models.ManyToManyField(SoftSkills, related_name='freelances', blank=True)
@@ -163,12 +163,12 @@ class CompanyProfile(models.Model):
 
     company_user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='company_profile')
     company_logo = models.ImageField(upload_to='company_logos/', null=True, blank=True)
-    company_size = models.CharField(max_length=10, choices=SIZE_CHOICES)
-    company_name = models.CharField(max_length=200)
-    company_street = models.CharField(max_length=200)
-    company_number = models.CharField(max_length=10)
-    company_postcode = models.CharField(max_length=200)
-    company_city = models.CharField(max_length=200)
+    company_size = models.CharField(max_length=10, choices=SIZE_CHOICES, null=True, blank=True)
+    company_name = models.CharField(max_length=200, null=True, blank=True)
+    company_street = models.CharField(max_length=200, null=True, blank=True)
+    company_number = models.CharField(max_length=10, null=True, blank=True)
+    company_postcode = models.CharField(max_length=200,null=True, blank=True)
+    company_city = models.CharField(max_length=200, null=True, blank=True)
     company_country = models.CharField(max_length=200, default='Belgique')
     company_phone = models.CharField(max_length=20, blank=True)
     company_email = models.EmailField(max_length=255, blank=True)

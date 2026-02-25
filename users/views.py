@@ -1,9 +1,11 @@
-from rest_framework import viewsets
-from rest_framework.permissions import IsAuthenticated
+from rest_framework import viewsets, generics
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from .models import FreeLanceProfile, JobOffer
-from .serializers import FreeLanceProfileSerializer, JobOfferSerializer
+from django.contrib.auth import get_user_model
+from .serializers import FreeLanceProfileSerializer, JobOfferSerializer, UserRegistrationSerializer
 from .permissions import IsFreelanceRole, IsCompanyRole, IsOwnerOfProfile
 
+User = get_user_model()
 
 class FreeLanceProfileViewSet(viewsets.ModelViewSet):
 
@@ -21,3 +23,9 @@ class JobOfferViewSet(viewsets.ModelViewSet):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
             return [IsAuthenticated(), IsCompanyRole()]
         return [IsAuthenticated()]
+
+class RegisterView(generics.CreateAPIView):
+
+    queryset = User.objects.all()
+    permission_classes = (AllowAny,)
+    serializer_class = UserRegistrationSerializer
