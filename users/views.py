@@ -12,6 +12,10 @@ class FreeLanceProfileViewSet(viewsets.ModelViewSet):
     serializer_class = FreeLanceProfileSerializer
     permission_classes = [IsAuthenticated, IsOwnerOfProfile]
 
+    def perform_update(self, serializer):
+        profil = serializer.save()
+        profil.check_completion()
+
 class FreelanceSkillViewSet(viewsets.ModelViewSet):
     serializer_class = FreelanceSkillSerializer
     permission_classes = [IsAuthenticated]
@@ -21,8 +25,8 @@ class FreelanceSkillViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         profil = FreeLanceProfile.objects.get(freelance_user=self.request.user)
-        # On remplace freelance=profil par profile=profil
         serializer.save(profile=profil)
+        profil.check_completion()
 
 class JobOfferViewSet(viewsets.ModelViewSet):
     queryset = JobOffer.objects.all()

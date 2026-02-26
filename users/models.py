@@ -67,10 +67,50 @@ class FreeLanceProfile(models.Model):
     freelance_linkedin_url = models.URLField(max_length=255,null=True, blank=True)
     freelance_website_url = models.URLField(max_length=255,null=True, blank=True)
     freelance_availability = models.CharField(choices=availability_choices, max_length=4, blank=True, null=True)
-    freelance_is_active = models.BooleanField(default=True)
+    is_ready_for_validation = models.BooleanField(
+        default=False,
+        help_text="Coché automatiquement quand les 10 champs obligatoires sont remplis."
+    )
+    freelance_is_active = models.BooleanField(default=False)
     freelance_sectors = models.ManyToManyField(Sector, related_name='freelances', blank=True)
     freelance_soft_skills = models.ManyToManyField(SoftSkills, related_name='freelances', blank=True)
     freelance_cv_file = models.FileField(upload_to='cv_files/', null=True, blank=True)
+
+    def check_completion(self):
+        direct_fields = [
+            self.freelance_birth_date,
+            self.freelance_gender,
+            self.freelance_location,
+            self.freelance_enterprise_number,
+            self.freelance_availability,
+            self.freelance_cv_file
+        ]
+        has_direct_fields = all(direct_fields)
+
+        if self.pk:
+            has_sectors = self.freelance_sectors.exists()
+            has_soft_skills = self.freelance_soft_skills.exists()
+            # CORRECTION 1 : On utilise le bon related_name
+            has_hard_skills = self.skill_levels.exists()
+            # CORRECTION 2 : Education n'a pas de related_name, donc Django l'appelle par défaut en minuscules + _set
+            has_education = self.education_set.exists()
+        else:
+            has_sectors = has_soft_skills = has_hard_skills = has_education = False
+
+        is_complete = (
+                has_direct_fields and
+                has_sectors and
+                has_soft_skills and
+                has_hard_skills and
+                has_education
+        )
+
+        if is_complete and not self.is_ready_for_validation:
+            self.is_ready_for_validation = True
+            self.save(update_fields=['is_ready_for_validation'])
+        elif not is_complete and self.is_ready_for_validation:
+            self.is_ready_for_validation = False
+            self.save(update_fields=['is_ready_for_validation'])
 
     def __str__(self):
         return f"Freelance: {self.freelance_user.username}"
