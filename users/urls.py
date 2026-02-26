@@ -1,11 +1,12 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import FreeLanceProfileViewSet, JobOfferViewSet, RegisterView
+from .views import FreeLanceProfileViewSet, JobOfferViewSet, RegisterView, FreelanceSkillViewSet
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 router = DefaultRouter()
 router.register(r'freelances', FreeLanceProfileViewSet, basename='freelance')
 router.register(r'jobs', JobOfferViewSet, basename='job')
+router.register(r'my-skills', FreelanceSkillViewSet, basename='my-skills')
 
 urlpatterns = [
     path('', include(router.urls)),

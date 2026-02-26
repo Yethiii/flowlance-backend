@@ -1,0 +1,37 @@
+### 1. Se connecter pour récupérer le Token
+POST http://localhost:8000/login/
+Content-Type: application/json
+
+{
+  "username": "Yethiii",
+  "password": "Test1234="
+}
+
+> {%
+    client.global.set("mon_token", response.body.access);
+%}
+
+### 2. Mettre à jour le profil avec le Token
+PATCH http://localhost:8000/freelances/1/
+Authorization: Bearer {{mon_token}}
+Content-Type: application/json
+
+{
+  "freelance_location": "Genappe",
+  "freelance_availability": "FULL",
+  "freelance_full_remote": true
+}
+
+### 3. Voir la liste de tous les profils
+GET http://localhost:8000/freelances/
+Authorization: Bearer {{mon_token}}
+
+### 4. Ajouter une compétence (HardSkill) au profil du freelance
+POST http://localhost:8000/my-skills/
+Authorization: Bearer {{mon_token}}
+Content-Type: application/json
+
+{
+  "skill": 5,
+  "level": 4
+}
