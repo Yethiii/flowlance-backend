@@ -1,19 +1,44 @@
 from django.core.validators import MinValueValidator, MaxValueValidator
-from django.contrib.auth.models import AbstractUser
+from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.db import models
 from datetime import date
+from django.core.exceptions import ValidationError
+
+
+class CustomUserManager(BaseUserManager):
+    def create_user(self, email, password=None, **extra_fields):
+        if not email:
+            raise ValueError("L'adresse e-mail est obligatoire")
+        email = self.normalize_email(email)
+        user = self.model(email=email, **extra_fields)
+        user.set_password(password)
+        user.save(using=self._db)
+        return user
+
+    def create_superuser(self, email, password=None, **extra_fields):
+        extra_fields.setdefault('is_staff', True)
+        extra_fields.setdefault('is_superuser', True)
+        return self.create_user(email, password, **extra_fields)
+
 
 class User(AbstractUser):
-    role_choices = (
-        ('FREELANCE','freelance'),
-        ('COMPANY','company'),
-        ('ADMIN','admin'),
-    )
+    username = None
+    email = models.EmailField(unique=True)
 
+    role_choices = (
+        ('FREELANCE', 'freelance'),
+        ('COMPANY', 'company'),
+        ('ADMIN', 'admin'),
+    )
     role = models.CharField(max_length=10, choices=role_choices, default='FREELANCE')
 
+    USERNAME_FIELD = 'email'
+    REQUIRED_FIELDS = []
+
+    objects = CustomUserManager()
+
     def __str__(self):
-        return f"{self.username} ({self.role})"
+        return f"{self.email} ({self.role})"
 
 class Sector(models.Model):
     name = models.CharField(max_length=100, unique=True)
@@ -112,6 +137,17 @@ class FreeLanceProfile(models.Model):
             self.is_ready_for_validation = False
             self.save(update_fields=['is_ready_for_validation'])
 
+    def clean(self):
+        super().clean()
+
+        if self.freelance_is_active:
+            unverified_education = self.education_set.filter(is_verified=False).exists()
+
+            if unverified_education:
+                raise ValidationError({
+                    'freelance_is_active': "Sécurité : Vous devez approuver (cocher is_verified) tous les diplômes avant d'activer ce profil."
+                })
+
     def __str__(self):
         return f"Freelance: {self.freelance_user.username}"
 
@@ -192,13 +228,13 @@ class Language(models.Model):
     language = models.CharField(max_length=50)
     level = models.CharField(choices=level_choices, max_length=2)
 
-class CompanyProfile(models.Model):
 
+class CompanyProfile(models.Model):
     SIZE_CHOICES = (
-            ('SMALL', '1-10 employés'),
-            ('MEDIUM', '11-50 employés'),
-            ('LARGE', '50-250 employés'),
-            ('CORP', 'Plus de 250 employés'),
+        ('SMALL', '1-10 employés'),
+        ('MEDIUM', '11-50 employés'),
+        ('LARGE', '50-250 employés'),
+        ('CORP', 'Plus de 250 employés'),
     )
 
     company_user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='company_profile')
@@ -207,22 +243,58 @@ class CompanyProfile(models.Model):
     company_name = models.CharField(max_length=200, null=True, blank=True)
     company_street = models.CharField(max_length=200, null=True, blank=True)
     company_number = models.CharField(max_length=10, null=True, blank=True)
-    company_postcode = models.CharField(max_length=200,null=True, blank=True)
+    company_postcode = models.CharField(max_length=200, null=True, blank=True)
     company_city = models.CharField(max_length=200, null=True, blank=True)
     company_country = models.CharField(max_length=200, default='Belgique')
     company_phone = models.CharField(max_length=20, blank=True)
-    company_email = models.EmailField(max_length=255, blank=True)
     company_linkedin = models.URLField(max_length=255, null=True, blank=True)
     company_description = models.TextField(blank=True, help_text="Présentation de l'entreprise et de sa culture")
     company_website = models.URLField(max_length=255, null=True, blank=True)
     company_TVA = models.CharField(max_length=50, blank=True, verbose_name="N° de TVA")
     company_BCE = models.CharField(max_length=50, blank=True, verbose_name="N° BCE")
-    company_sectors = models.ManyToManyField(Sector, related_name='companies', blank=True)
-    company_is_verified = models.BooleanField(default=False)
-    company_is_active = models.BooleanField(default=True)
+    company_sectors = models.ManyToManyField('Sector', related_name='companies', blank=True)
+
+    is_ready_for_validation = models.BooleanField(
+        default=False,
+        help_text="Coché automatiquement quand le profil est complet."
+    )
+    company_is_active = models.BooleanField(default=False)
+
+    def check_completion(self):
+        direct_fields = [
+            self.company_name,
+            self.company_size,
+            self.company_street,
+            self.company_number,
+            self.company_postcode,
+            self.company_city,
+            self.company_phone
+        ]
+        has_direct_fields = all(direct_fields)
+
+        if self.pk:
+            has_sectors = self.company_sectors.exists()
+        else:
+            has_sectors = False
+
+        is_complete = has_direct_fields and has_sectors
+
+        if is_complete and not self.is_ready_for_validation:
+            self.is_ready_for_validation = True
+            self.save(update_fields=['is_ready_for_validation'])
+        elif not is_complete and self.is_ready_for_validation:
+            self.is_ready_for_validation = False
+            self.save(update_fields=['is_ready_for_validation'])
+
+    def clean(self):
+        super().clean()
+        if self.company_is_active and not self.is_ready_for_validation:
+            raise ValidationError({
+                'company_is_active': "Le dossier de cette entreprise n'est pas complet. L'activation est bloquée."
+            })
 
     def __str__(self):
-        return f"Company: {self.company_name}"
+        return f"Company: {self.company_name or self.company_user.email}"
 
 class JobOffer(models.Model):
     offer_company = models.ForeignKey(CompanyProfile, on_delete=models.CASCADE, related_name='job_offers')

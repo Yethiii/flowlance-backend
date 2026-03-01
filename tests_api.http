@@ -1,19 +1,30 @@
-### 1. Se connecter pour récupérer le Token
+### 1A. Login ENTREPRISE
 POST http://localhost:8000/login/
 Content-Type: application/json
 
 {
-  "username": "Yethiii",
+  "email": "company@test.be",
   "password": "Test1234="
 }
-
 > {%
-    client.global.set("mon_token", response.body.access);
+    client.global.set("company_token", response.body.access);
 %}
 
-### 2. Mettre à jour le profil avec le Token
+### 1B. Login FREELANCE
+POST http://localhost:8000/login/
+Content-Type: application/json
+
+{
+  "email": "freelance@test.be",
+  "password": "Test1234="
+}
+> {%
+    client.global.set("freelance_token", response.body.access);
+%}
+
+### 2A. Mettre à jour le profil Freelance
 PATCH http://localhost:8000/freelances/1/
-Authorization: Bearer {{mon_token}}
+Authorization: Bearer {{freelance_token}}
 Content-Type: application/json
 
 {
@@ -22,16 +33,76 @@ Content-Type: application/json
   "freelance_full_remote": true
 }
 
-### 3. Voir la liste de tous les profils
-GET http://localhost:8000/freelances/
-Authorization: Bearer {{mon_token}}
-
-### 4. Ajouter une compétence (HardSkill) au profil du freelance
+### 2B. Ajouter une compétence (HardSkill)
 POST http://localhost:8000/my-skills/
-Authorization: Bearer {{mon_token}}
+Authorization: Bearer {{freelance_token}}
 Content-Type: application/json
 
 {
   "skill": 5,
   "level": 4
 }
+
+### 3. Voir la liste des entreprises pour trouver le bon ID
+GET http://localhost:8000/companies/
+Authorization: Bearer {{company_token}}
+
+### 3A. Mettre à jour le profil Entreprise
+PATCH http://localhost:8000/companies/1/
+Authorization: Bearer {{company_token}}
+Content-Type: application/json
+
+{
+  "company_name": "SuperTech",
+  "company_size": "SMALL",
+  "company_street": "Rue de la Loi",
+  "company_number": "16",
+  "company_postcode": "1000",
+  "company_city": "Bruxelles",
+  "company_phone": "021234567"
+}
+
+### 3B. Publier une offre d'emploi
+POST http://localhost:8000/job-offers/
+Authorization: Bearer {{company_token}}
+Content-Type: application/json
+
+{
+  "offer_title": "Développeur Python Junior",
+  "offer_location": "Bruxelles (Hybride)",
+  "offer_description": "Nous cherchons un talent pour nous aider sur Django !",
+  "offer_sector": 1
+}
+
+### 4A. Voir TOUTES les offres actives (Le catalogue de base)
+GET http://localhost:8000/job-offers/
+Authorization: Bearer {{freelance_token}}
+
+### 4B. Chercher un mot-clé précis (ex: "Python")
+GET http://localhost:8000/job-offers/?search=Python
+Authorization: Bearer {{freelance_token}}
+
+### 4C. Filtrer par ville exacte
+GET http://localhost:8000/job-offers/?offer_location=Bruxelles (Hybride)
+Authorization: Bearer {{freelance_token}}
+
+### 5A. Demander à l'IA de rédiger une annonce à partir de mots-clés
+POST http://localhost:8000/generate-job/
+Authorization: Bearer {{company_token}}
+Content-Type: application/json
+
+{
+  "keywords": "Développeur Python, Django, 3 ans d'expérience minimum, télétravail hybride, autonome, tickets restaurant, ambiance détendue"
+}
+
+### 5A. Envoyer une IMAGE de CV à l'IA pour analyse
+POST http://localhost:8000/cv-advice/
+Authorization: Bearer {{freelance_token}}
+Content-Type: multipart/form-data; boundary=MonSuperFiltreFrontiere
+
+--MonSuperFiltreFrontiere
+Content-Disposition: form-data; name="cv_image"; filename="test_cv.png"
+Content-Type: image/png
+
+< ./test_cv.png
+--MonSuperFiltreFrontiere--

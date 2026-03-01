@@ -6,9 +6,13 @@ class FreelanceSkillInline(admin.TabularInline):
     model = FreelanceSkill
     extra = 1
 
+class EducationInline(admin.StackedInline):
+    model = Education
+    extra = 0
+
 @admin.register(FreeLanceProfile)
 class FreeLanceProfileAdmin(admin.ModelAdmin):
-    inlines = [FreelanceSkillInline]
+    inlines = [FreelanceSkillInline, EducationInline]
 
     list_display = (
         'freelance_user',
@@ -34,12 +38,41 @@ class FreeLanceProfileAdmin(admin.ModelAdmin):
         super().save_related(request, form, formsets, change)
         form.instance.check_completion()
 
+
+@admin.register(CompanyProfile)
+class CompanyProfileAdmin(admin.ModelAdmin):
+    list_display = (
+        'get_email',
+        'company_name',
+        'is_ready_for_validation',
+        'company_is_active'
+    )
+
+    list_filter = ('is_ready_for_validation', 'company_is_active')
+
+    search_fields = ('company_user__email', 'company_name')
+
+    actions = ['activate_selected_companies']
+
+    def get_email(self, obj):
+        return obj.company_user.email
+
+    get_email.short_description = 'Utilisateur (E-mail)'
+
+    @admin.action(description='Activer les entreprises sélectionnées (si prêtes)')
+    def activate_selected_companies(self, request, queryset):
+        ready_companies = queryset.filter(is_ready_for_validation=True)
+        updated_count = ready_companies.update(company_is_active=True)
+        self.message_user(request, f"{updated_count} entreprise(s) activée(s) avec succès.")
+
+    def save_related(self, request, form, formsets, change):
+        super().save_related(request, form, formsets, change)
+        form.instance.check_completion()
+
 admin.site.register(User)
 admin.site.register(Sector)
-admin.site.register(CompanyProfile)
 admin.site.register(HardSkills)
 admin.site.register(Language)
 admin.site.register(License)
-admin.site.register(Education)
 admin.site.register(SoftSkills)
 admin.site.register(JobOffer)

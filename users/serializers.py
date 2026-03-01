@@ -10,13 +10,20 @@ User = get_user_model()
 class UserRegistrationSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
 
+    PUBLIC_ROLES = (
+        ('FREELANCE', 'Freelance'),
+        ('COMPANY', 'Entreprise'),
+    )
+
+    role = serializers.ChoiceField(choices=PUBLIC_ROLES, default='FREELANCE')
+
     class Meta:
         model = User
-        fields = ['username', 'email', 'password', 'role']
+        fields = ['email', 'password', 'role']
+        extra_kwargs = {'password': {'write_only': True}}
 
     def create(self, validated_data):
         user = User.objects.create_user(
-            username=validated_data['username'],
             email=validated_data.get('email', ''),
             password=validated_data['password'],
             role=validated_data.get('role', 'FREELANCE')
@@ -60,6 +67,11 @@ class FreeLanceProfileSerializer(serializers.ModelSerializer):
             'freelance_full_remote', 'skill_levels', 'freelance_soft_skills'
         ]
 
+class CompanyProfileSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CompanyProfile
+        fields = '__all__'
+
 
 class JobOfferSerializer(serializers.ModelSerializer):
     company_name = serializers.ReadOnlyField(source='offer_company.company_name')
@@ -70,3 +82,9 @@ class JobOfferSerializer(serializers.ModelSerializer):
             'id', 'offer_company', 'company_name', 'offer_title',
             'offer_location', 'offer_description', 'offer_hardskills', 'offer_softskills'
         ]
+
+class JobOfferSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = JobOffer
+        fields = '__all__'
+        read_only_fields = ('offer_company', 'offer_created_at', 'offer_is_active')
