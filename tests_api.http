@@ -101,8 +101,8 @@ Authorization: Bearer {{freelance_token}}
 Content-Type: multipart/form-data; boundary=MonSuperFiltreFrontiere
 
 --MonSuperFiltreFrontiere
-Content-Disposition: form-data; name="cv_image"; filename="CV_-_2025.pdf"
-Content-Type: image/png
+Content-Disposition: form-data; name="cv_file"; filename="CV_-_2025.pdf"
+Content-Type: application/pdf
 
 < ./media/cv_files/CV_-_2025.pdf
 --MonSuperFiltreFrontiere--

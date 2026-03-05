@@ -1,5 +1,5 @@
 import requests
-import base64
+import PyPDF2
 from rest_framework import viewsets, generics, filters
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from .models import FreeLanceProfile, JobOffer, FreelanceSkill, CompanyProfile
@@ -164,24 +164,31 @@ class GenerateCVAdviceView(APIView):
     def post(self, request):
         user = request.user
         if user.role != 'FREELANCE':
-            raise PermissionDenied("Seuls les freelances peuvent accéder au coaching de CV.")
+            raise PermissionDenied("Seuls les freelances peuvent accéder au coaching.")
 
-        cv_file = request.FILES.get('cv_image')
+        cv_file = request.FILES.get('cv_file')  # Note : On l'appelle 'cv_file' maintenant
         if not cv_file:
-            raise ValidationError({"cv_image": "Veuillez fournir une image (JPG/PNG) de votre CV."})
+            raise ValidationError({"cv_file": "Veuillez fournir votre CV au format PDF."})
+
+        if not cv_file.name.lower().endswith('.pdf'):
+            raise ValidationError({"cv_file": "Le fichier doit obligatoirement être un PDF."})
 
         try:
-            image_data = cv_file.read()
-            base64_encoded = base64.b64encode(image_data).decode('utf-8')
-            mime_type = cv_file.content_type
+            pdf_reader = PyPDF2.PdfReader(cv_file)
+            extracted_text = ""
+            for page in pdf_reader.pages:
+                extracted_text += page.extract_text() + "\n"
+
+            if not extracted_text.strip():
+                raise ValidationError({"cv_file": "Le PDF semble vide ou est une image scannée sans texte détectable."})
         except Exception as e:
-            raise ValidationError({"cv_image": f"Erreur lors de la lecture de l'image : {str(e)}"})
+            raise ValidationError({"cv_file": f"Erreur lors de la lecture du PDF : {str(e)}"})
 
         system_prompt = (
             "Tu es un coach carrière bienveillant et un expert en recrutement IT. "
-            "Analyse le CV fourni en image. "
+            "Analyse le contenu de ce CV (qui a été extrait d'un PDF). "
             "Fournis 3 conseils clairs, précis et actionnables pour l'améliorer "
-            "(mise en valeur des compétences, design, clarté). "
+            "(mise en valeur des compétences, mots-clés, clarté du profil). "
             "Garde un ton professionnel et encourageant."
         )
 
@@ -195,21 +202,7 @@ class GenerateCVAdviceView(APIView):
             "model": "anthropic/claude-3-haiku",
             "messages": [
                 {"role": "system", "content": system_prompt},
-                {
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "text",
-                            "text": "Voici mon CV. Que penses-tu de la présentation et du contenu ?"
-                        },
-                        {
-                            "type": "image_url",
-                            "image_url": {
-                                "url": f"data:{mime_type};base64,{base64_encoded}"
-                            }
-                        }
-                    ]
-                }
+                {"role": "user", "content": f"Voici le contenu de mon CV :\n\n{extracted_text}"}
             ]
         }
 
@@ -222,7 +215,7 @@ class GenerateCVAdviceView(APIView):
 
             if response.status_code != 200:
                 return Response({
-                    "error": "L'IA a rejeté l'image.",
+                    "error": "L'IA a rejeté la demande.",
                     "details": response.text
                 }, status=500)
 
