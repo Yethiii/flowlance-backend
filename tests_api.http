@@ -95,7 +95,7 @@ Content-Type: application/json
   "keywords": "Développeur Python, Django, 3 ans d'expérience minimum, télétravail hybride, autonome, tickets restaurant, ambiance détendue"
 }
 
-### 5A. Envoyer une IMAGE de CV à l'IA pour analyse
+### 5B. Envoyer une IMAGE de CV à l'IA pour analyse
 POST http://localhost:8000/cv-advice/
 Authorization: Bearer {{freelance_token}}
 Content-Type: multipart/form-data; boundary=MonSuperFiltreFrontiere
@@ -106,3 +106,14 @@ Content-Type: application/pdf
 
 < ./media/cv_files/CV_-_2025.pdf
 --MonSuperFiltreFrontiere--
+
+### 6. Le freelance postule
+POST http://localhost:8000/applications/
+Authorization: Bearer {{freelance_token}}
+Content-Type: application/json
+
+{
+  "job_offer": 1,
+  "cover_message": "Bonjour ! Je suis très intéressé par cette mission, mon profil correspond parfaitement à vos attentes."
+}
+

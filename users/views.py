@@ -4,7 +4,7 @@ from rest_framework import viewsets, generics, filters
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from .models import FreeLanceProfile, JobOffer, FreelanceSkill, CompanyProfile
 from django.contrib.auth import get_user_model
-from .serializers import FreeLanceProfileSerializer, JobOfferSerializer, UserRegistrationSerializer, FreelanceSkillSerializer, CompanyProfileSerializer
+from .serializers import FreeLanceProfileSerializer, JobOfferSerializer, UserRegistrationSerializer, FreelanceSkillSerializer, CompanyProfileSerializer, JobApplicationSerializer, JobApplication
 from .permissions import IsFreelanceRole, IsCompanyRole, IsOwnerOfProfile
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from django_filters.rest_framework import DjangoFilterBackend
@@ -166,7 +166,7 @@ class GenerateCVAdviceView(APIView):
         if user.role != 'FREELANCE':
             raise PermissionDenied("Seuls les freelances peuvent accéder au coaching.")
 
-        cv_file = request.FILES.get('cv_file')  # Note : On l'appelle 'cv_file' maintenant
+        cv_file = request.FILES.get('cv_file')
         if not cv_file:
             raise ValidationError({"cv_file": "Veuillez fournir votre CV au format PDF."})
 
@@ -226,3 +226,25 @@ class GenerateCVAdviceView(APIView):
 
         except requests.exceptions.RequestException as e:
             return Response({"error": "Problème réseau avec le serveur IA.", "details": str(e)}, status=500)
+
+
+class JobApplicationViewSet(viewsets.ModelViewSet):
+    serializer_class = JobApplicationSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+
+        if user.role == 'FREELANCE':
+            return JobApplication.objects.filter(freelance=user.freelance_profile)
+
+        elif user.role == 'COMPANY':
+            return JobApplication.objects.filter(job_offer__company=user.company_profile)
+
+        return JobApplication.objects.none()
+
+    def perform_create(self, serializer):
+        if self.request.user.role != 'FREELANCE':
+            raise PermissionDenied("Seuls les freelances peuvent postuler à une offre.")
+
+        serializer.save()

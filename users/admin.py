@@ -1,6 +1,6 @@
 from django.contrib import admin
 from .models import User, Sector, FreeLanceProfile, CompanyProfile, HardSkills, FreelanceSkill, SoftSkills, Language, \
-    License, Education, JobOffer
+    License, Education, JobOffer, JobApplication
 
 class FreelanceSkillInline(admin.TabularInline):
     model = FreelanceSkill
@@ -68,6 +68,12 @@ class CompanyProfileAdmin(admin.ModelAdmin):
     def save_related(self, request, form, formsets, change):
         super().save_related(request, form, formsets, change)
         form.instance.check_completion()
+
+@admin.register(JobApplication)
+class JobApplicationAdmin(admin.ModelAdmin):
+    list_display = ('freelance', 'job_offer', 'status', 'applied_at')
+    list_filter = ('status', 'applied_at')
+    search_fields = ('freelance__freelance_user__email', 'job_offer__job_title')
 
 admin.site.register(User)
 admin.site.register(Sector)

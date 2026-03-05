@@ -309,3 +309,25 @@ class JobOffer(models.Model):
 
     def __str__(self):
         return f"{self.offer_title} - {self.offer_company.company_name}"
+
+
+class JobApplication(models.Model):
+    STATUS_CHOICES = [
+        ('PENDING', 'En attente'),
+        ('REVIEWING', 'En cours d\'examen'),
+        ('ACCEPTED', 'Acceptée'),
+        ('REJECTED', 'Refusée'),
+    ]
+
+    job_offer = models.ForeignKey(JobOffer, on_delete=models.CASCADE, related_name='applications')
+    freelance = models.ForeignKey(FreeLanceProfile, on_delete=models.CASCADE, related_name='applications')
+
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='PENDING')
+    cover_message = models.TextField(blank=True, null=True, help_text="Message d'accompagnement optionnel")
+    applied_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('job_offer', 'freelance')
+
+    def __str__(self):
+        return f"Candidature de {self.freelance.freelance_user.email} pour {self.job_offer.job_title}"
