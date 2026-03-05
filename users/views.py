@@ -1,5 +1,6 @@
 import requests
 import PyPDF2
+import json
 from rest_framework import viewsets, generics, filters
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from .models import FreeLanceProfile, JobOffer, FreelanceSkill, CompanyProfile
@@ -248,3 +249,84 @@ class JobApplicationViewSet(viewsets.ModelViewSet):
             raise PermissionDenied("Seuls les freelances peuvent postuler à une offre.")
 
         serializer.save()
+
+
+class FreelanceDashboardView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        if user.role != 'FREELANCE':
+            raise PermissionDenied("Seuls les freelances ont accès à ce dashboard.")
+
+        freelance = user.freelance_profile
+
+        # 1. Filtre Base de données avec les bons champs de JobOffer
+        matching_jobs = JobOffer.objects.filter(
+            offer_sector__in=freelance.freelance_sectors.all()
+        ).distinct().order_by('-offer_created_at')[:3]
+
+        if not matching_jobs:
+            return Response({"dashboard": [], "message": "Aucune mission dans votre secteur pour le moment."})
+
+        # 2. Préparation sécurisée des données avec les bons champs de FreeLanceProfile
+        # L'utilisation de str(hs) nous garantit de récupérer le texte sans erreur d'attribut
+        hard_skills = ", ".join([str(hs) for hs in freelance.skill_levels.all()])
+        freelance_info = f"Localisation: {freelance.freelance_location}\nCompétences: {hard_skills}"
+
+        jobs_prompt_text = ""
+        for job in matching_jobs:
+            jobs_prompt_text += f"\n--- OFFRE ID {job.id} ---\nTitre: {job.offer_title}\nDescription: {job.offer_description}\n"
+
+        # 3. Le Prompt IA
+        system_prompt = (
+            "Tu es un algorithme de matching RH. "
+            "Je vais te donner le profil d'un freelance et une liste de missions. "
+            "Pour chaque mission, donne un score de compatibilité sur 100 et une phrase courte d'explication. "
+            "Réponds STRICTEMENT en JSON avec ce format exact : "
+            "[{\"job_id\": 1, \"score\": 85, \"explication\": \"...\"}]"
+        )
+
+        user_prompt = f"=== MON PROFIL ===\n{freelance_info}\n\n=== MISSIONS DISPONIBLES ===\n{jobs_prompt_text}"
+
+        headers = {
+            "Authorization": f"Bearer {settings.OPENROUTER_API_KEY}",
+            "HTTP-Referer": "http://localhost:8000",
+            "Content-Type": "application/json"
+        }
+
+        data = {
+            "model": "anthropic/claude-3-haiku",
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ]
+        }
+
+        # 4. Exécution
+        try:
+            response = requests.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=data)
+
+            if response.status_code != 200:
+                return Response({"error": "Erreur IA", "details": response.text}, status=500)
+
+            result = response.json()
+            analysis_text = result['choices'][0]['message']['content']
+
+            try:
+                clean_text = analysis_text.strip().strip("```json").strip("```").strip()
+                dashboard_data = json.loads(clean_text)
+
+                # Injection des liens
+                for match in dashboard_data:
+                    job_id = match.get('job_id')
+                    if job_id:
+                        match['job_link'] = f"http://localhost:8000/job-offers/{job_id}/"
+
+            except json.JSONDecodeError:
+                dashboard_data = {"analyse_brute": analysis_text}
+
+            return Response({"dashboard": dashboard_data})
+
+        except requests.exceptions.RequestException as e:
+            return Response({"error": "Problème réseau", "details": str(e)}, status=500)

@@ -330,4 +330,4 @@ class JobApplication(models.Model):
         unique_together = ('job_offer', 'freelance')
 
     def __str__(self):
-        return f"Candidature de {self.freelance.freelance_user.email} pour {self.job_offer.job_title}"
+        return f"Candidature de {self.freelance.freelance_user.email} pour {self.job_offer.offer_title}"
