@@ -330,3 +330,67 @@ class FreelanceDashboardView(APIView):
 
         except requests.exceptions.RequestException as e:
             return Response({"error": "Problème réseau", "details": str(e)}, status=500)
+
+
+class CompanyDashboardView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        if user.role != 'COMPANY':
+            raise PermissionDenied("Seules les entreprises ont accès à ce dashboard.")
+
+        company = user.company_profile
+
+        my_offers = JobOffer.objects.filter(offer_company=company, offer_is_active=True)
+
+        dashboard_results = []
+
+        for offer in my_offers:
+            potential_candidates = FreeLanceProfile.objects.filter(
+                freelance_sectors=offer.offer_sector
+            ).distinct()[:3]
+
+            if not potential_candidates:
+                continue
+
+            candidates_data = ""
+            for f in potential_candidates:
+                skills = ", ".join([str(s) for s in f.skill_levels.all()])
+                candidates_data += f"\n--- CANDIDAT ID {f.id} ---\nLocalisation: {f.freelance_location}\nCompétences: {skills}\n"
+
+            system_prompt = (
+                "Tu es un assistant de recrutement. "
+                "Compare cette offre avec les candidats suivants. "
+                "Donne un score sur 100 et une explication courte pour chaque candidat. "
+                "Réponds STRICTEMENT en JSON : [{\"freelance_id\": 1, \"score\": 80, \"explication\": \"...\"}]"
+            )
+
+            user_prompt = f"=== OFFRE : {offer.offer_title} ===\n{offer.offer_description}\n\n=== CANDIDATS ===\n{candidates_data}"
+
+            headers = {"Authorization": f"Bearer {settings.OPENROUTER_API_KEY}", "Content-Type": "application/json"}
+            data = {
+                "model": "anthropic/claude-3-haiku",
+                "messages": [{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}]
+            }
+
+            try:
+                response = requests.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=data)
+                if response.status_code == 200:
+                    raw_content = response.json()['choices'][0]['message']['content']
+                    clean_text = raw_content.strip().strip("```json").strip("```").strip()
+                    matches = json.loads(clean_text)
+
+                    for m in matches:
+                        m['profile_link'] = f"http://localhost:8000/freelance-profiles/{m['freelance_id']}/"
+
+                    dashboard_results.append({
+                        "job_title": offer.offer_title,
+                        "job_id": offer.id,
+                        "top_matches": matches
+                    })
+            except:
+                continue
+
+        return Response({"company_dashboard": dashboard_results})
+

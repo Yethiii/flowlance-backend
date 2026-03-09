@@ -1,0 +1,36 @@
+name: Django CI
+
+on:
+  push:
+    branches: [ "main", "master" ] # Se déclenche quand tu push sur ces branches
+  pull_request:
+    branches: [ "main", "master" ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      # Si tu utilises une base de données spécifique comme PostgreSQL plus tard,
+      # on l'ajoutera ici. Pour l'instant, on reste simple.
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12' # Ou ta version actuelle
+
+    - name: Install Dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Run Migrations
+      run: |
+        python manage.py migrate
+
+    - name: Run System Check
+      run: |
+        python manage.py check

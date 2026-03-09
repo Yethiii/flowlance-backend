@@ -117,7 +117,10 @@ Content-Type: application/json
   "cover_message": "Bonjour ! Je suis très intéressé par cette mission, mon profil correspond parfaitement à vos attentes."
 }
 
-### 7. Le Freelance consulte son tableau de bord de matchs
+### 7. Le Freelance - Tableau de bord de matchs
 GET http://localhost:8000/dashboard/freelance/
 Authorization: Bearer {{freelance_token}}
 
+### 8. L'Entreprise - Matchs pour ses annonces
+GET http://localhost:8000/dashboard/company/
+Authorization: Bearer {{company_token}}

@@ -1,6 +1,6 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import FreeLanceProfileViewSet, JobOfferViewSet, RegisterView, FreelanceSkillViewSet, CompanyProfileViewSet, GenerateJobDescriptionView, GenerateCVAdviceView, JobApplicationViewSet, FreelanceDashboardView
+from .views import FreeLanceProfileViewSet, JobOfferViewSet, CompanyDashboardView, RegisterView, FreelanceSkillViewSet, CompanyProfileViewSet, GenerateJobDescriptionView, GenerateCVAdviceView, JobApplicationViewSet, FreelanceDashboardView
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 router = DefaultRouter()
@@ -20,4 +20,5 @@ urlpatterns = [
     path('generate-job/', GenerateJobDescriptionView.as_view(), name='generate-job'),
     path('cv-advice/', GenerateCVAdviceView.as_view(), name='cv-advice'),
     path('dashboard/freelance/', FreelanceDashboardView.as_view(), name='freelance-dashboard'),
+    path('dashboard/company/', CompanyDashboardView.as_view(), name='company-dashboard'),
 ]
