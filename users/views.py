@@ -394,3 +394,17 @@ class CompanyDashboardView(APIView):
 
         return Response({"company_dashboard": dashboard_results})
 
+
+class CurrentUserView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+
+        role = getattr(user, 'role', getattr(user, 'user_type', 'FREELANCE'))
+
+        return Response({
+            'id': user.id,
+            'email': user.email,
+            'role': role
+        })
