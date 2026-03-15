@@ -168,7 +168,7 @@ class CompanyProfileViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['delete'])
     def delete_account(self, request):
         user = request.user
-        user.delete() # Supprimera le profil et les annonces d'emploi liées !
+        user.delete()
         return Response(status=204)
 
 class JobOfferViewSet(viewsets.ModelViewSet):
