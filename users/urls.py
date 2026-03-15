@@ -1,22 +1,22 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 
-# J'ai ajouté CurrentUserView à la fin de tes imports
 from .views import (
     FreeLanceProfileViewSet, JobOfferViewSet, CompanyDashboardView,
     RegisterView, FreelanceSkillViewSet, CompanyProfileViewSet,
     GenerateJobDescriptionView, GenerateCVAdviceView, JobApplicationViewSet,
-    FreelanceDashboardView, CurrentUserView, SectorViewSet, SoftSkillsViewSet, LicenseViewSet,
-    CertificationViewSet, LanguageViewSet, EducationViewSet
+    FreelanceDashboardView, CurrentUserView,
+    SectorViewSet, SoftSkillsViewSet, LanguageViewSet, EducationViewSet,
+    CertificationViewSet, LicenseViewSet
 )
 
 router = DefaultRouter()
 router.register(r'freelances', FreeLanceProfileViewSet, basename='freelance')
-router.register(r'jobs', JobOfferViewSet, basename='job')
 router.register(r'my-skills', FreelanceSkillViewSet, basename='my-skills')
 router.register(r'companies', CompanyProfileViewSet, basename='company')
 router.register(r'job-offers', JobOfferViewSet, basename='joboffer')
 router.register(r'applications', JobApplicationViewSet, basename='application')
+
 router.register(r'sectors', SectorViewSet, basename='sector')
 router.register(r'soft-skills', SoftSkillsViewSet, basename='softskill')
 router.register(r'languages', LanguageViewSet, basename='language')
@@ -26,7 +26,6 @@ router.register(r'licenses', LicenseViewSet, basename='license')
 
 urlpatterns = [
     path('', include(router.urls)),
-
     path('users/me/', CurrentUserView.as_view(), name='current-user'),
     path('register/', RegisterView.as_view(), name='register'),
     path('generate-job/', GenerateJobDescriptionView.as_view(), name='generate-job'),
