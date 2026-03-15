@@ -1,7 +1,8 @@
 from rest_framework import serializers
 from .models import (
     User, Sector, SoftSkills, HardSkills,
-    FreeLanceProfile, FreelanceSkill, CompanyProfile, JobOffer, JobApplication, Education
+    FreeLanceProfile, FreelanceSkill, CompanyProfile, JobOffer, JobApplication, Education,
+    Language, Certification, License  # <-- Nouveaux imports !
 )
 from django.contrib.auth import get_user_model
 
@@ -36,31 +37,61 @@ class EducationSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
+# NOUVEAUX SERIALIZERS POUR LE PROFIL
+class LanguageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Language
+        fields = '__all__'
+
+
+class CertificationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Certification
+        fields = '__all__'
+
+
+class LicenseSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = License
+        fields = '__all__'
+
+
 # --- 2. SERIALIZERS COMPLEXES (Relations) ---
 
 class FreelanceSkillSerializer(serializers.ModelSerializer):
     skill_name = serializers.ReadOnlyField(source='skill.name')
+    sector_name = serializers.ReadOnlyField(source='skill.sector.name')  # Pour l'affichage frontend
     skill = serializers.SlugRelatedField(
         slug_field='name',
         queryset=HardSkills.objects.all()
     )
+    sector_id = serializers.IntegerField(write_only=True, required=False)  # Pour l'ajout
 
     class Meta:
         model = FreelanceSkill
-        fields = ['id', 'skill', 'skill_name', 'level']
+        fields = ['id', 'skill', 'skill_name', 'sector_name', 'level', 'sector_id']
 
     def to_internal_value(self, data):
         skill_name = data.get('skill')
+        sector_id = data.get('sector_id')
         if skill_name:
-            # On crée le HardSkill s'il n'existe pas déjà
-            HardSkills.objects.get_or_create(name=skill_name)
+            # On cherche ou crée la compétence avec son secteur
+            skill_obj, created = HardSkills.objects.get_or_create(
+                name=skill_name,
+                defaults={'sector_id': sector_id}
+            )
+            data['skill'] = skill_obj.name
         return super().to_internal_value(data)
 
 
 class FreeLanceProfileSerializer(serializers.ModelSerializer):
-    skill_levels = FreelanceSkillSerializer(many=True, read_only=True)
-    # Déplacé ici car EducationSerializer est maintenant défini plus haut
+    # On précise 'source' pour forcer Django à aller chercher les tables liées !
+    skill_levels = FreelanceSkillSerializer(many=True, read_only=True, source='freelanceskill_set')
     educations = EducationSerializer(many=True, read_only=True, source='education_set')
+    languages = LanguageSerializer(many=True, read_only=True, source='language_set')
+    certifications = CertificationSerializer(many=True, read_only=True, source='certification_set')
+    licenses = LicenseSerializer(many=True, read_only=True, source='license_set')
+
     username = serializers.ReadOnlyField(source='freelance_user.email')
 
     class Meta:

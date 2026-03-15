@@ -6,7 +6,8 @@ from .views import (
     FreeLanceProfileViewSet, JobOfferViewSet, CompanyDashboardView,
     RegisterView, FreelanceSkillViewSet, CompanyProfileViewSet,
     GenerateJobDescriptionView, GenerateCVAdviceView, JobApplicationViewSet,
-    FreelanceDashboardView, CurrentUserView
+    FreelanceDashboardView, CurrentUserView, SectorViewSet, SoftSkillsViewSet, LicenseViewSet,
+    CertificationViewSet, LanguageViewSet, EducationViewSet
 )
 
 router = DefaultRouter()
@@ -16,6 +17,12 @@ router.register(r'my-skills', FreelanceSkillViewSet, basename='my-skills')
 router.register(r'companies', CompanyProfileViewSet, basename='company')
 router.register(r'job-offers', JobOfferViewSet, basename='joboffer')
 router.register(r'applications', JobApplicationViewSet, basename='application')
+router.register(r'sectors', SectorViewSet, basename='sector')
+router.register(r'soft-skills', SoftSkillsViewSet, basename='softskill')
+router.register(r'languages', LanguageViewSet, basename='language')
+router.register(r'educations', EducationViewSet, basename='education')
+router.register(r'certifications', CertificationViewSet, basename='certification')
+router.register(r'licenses', LicenseViewSet, basename='license')
 
 urlpatterns = [
     path('', include(router.urls)),

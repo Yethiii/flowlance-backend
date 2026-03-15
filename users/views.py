@@ -3,22 +3,30 @@ import PyPDF2
 import json
 from rest_framework import viewsets, generics, filters
 from rest_framework.permissions import IsAuthenticated, AllowAny
-from .models import FreeLanceProfile, JobOffer, FreelanceSkill, CompanyProfile
+from .models import (FreeLanceProfile, JobOffer, FreelanceSkill, CompanyProfile, Sector, SoftSkills,
+                     Language, Education, Certification, License)
 from django.contrib.auth import get_user_model
-from .serializers import FreeLanceProfileSerializer, JobOfferSerializer, UserRegistrationSerializer, FreelanceSkillSerializer, CompanyProfileSerializer, JobApplicationSerializer, JobApplication
+from .serializers import (FreeLanceProfileSerializer, JobOfferSerializer, UserRegistrationSerializer, SectorSerializer,
+                            SoftSkillSerializer, FreelanceSkillSerializer, CompanyProfileSerializer, JobApplicationSerializer,
+                          JobApplication, LanguageSerializer, EducationSerializer, CertificationSerializer, LicenseSerializer)
 from .permissions import IsFreelanceRole, IsCompanyRole, IsOwnerOfProfile
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from django_filters.rest_framework import DjangoFilterBackend
 from django.conf import settings
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 
 User = get_user_model()
 
 class FreeLanceProfileViewSet(viewsets.ModelViewSet):
-    queryset = FreeLanceProfile.objects.all()
     serializer_class = FreeLanceProfileSerializer
     permission_classes = [IsAuthenticated, IsOwnerOfProfile]
+
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
+
+    def get_queryset(self):
+        return FreeLanceProfile.objects.filter(freelance_user=self.request.user)
 
     def perform_update(self, serializer):
         profil = serializer.save()
@@ -408,3 +416,60 @@ class CurrentUserView(APIView):
             'email': user.email,
             'role': role
         })
+
+class SectorViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = Sector.objects.all()
+    serializer_class = SectorSerializer
+    permission_classes = [IsAuthenticated]
+
+class SoftSkillsViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = SoftSkills.objects.all()
+    serializer_class = SoftSkillSerializer
+    permission_classes = [IsAuthenticated]
+
+class LanguageViewSet(viewsets.ModelViewSet):
+    serializer_class = LanguageSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return Language.objects.filter(profile__freelance_user=self.request.user)
+
+    def perform_create(self, serializer):
+        profil = FreeLanceProfile.objects.get(freelance_user=self.request.user)
+        serializer.save(profile=profil)
+
+class EducationViewSet(viewsets.ModelViewSet):
+    serializer_class = EducationSerializer
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
+
+    def get_queryset(self):
+        return Education.objects.filter(profile__freelance_user=self.request.user)
+
+    def perform_create(self, serializer):
+        profil = FreeLanceProfile.objects.get(freelance_user=self.request.user)
+        serializer.save(profile=profil)
+
+class CertificationViewSet(viewsets.ModelViewSet):
+    serializer_class = CertificationSerializer
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
+
+    def get_queryset(self):
+        return Certification.objects.filter(profile__freelance_user=self.request.user)
+
+    def perform_create(self, serializer):
+        profil = FreeLanceProfile.objects.get(freelance_user=self.request.user)
+        serializer.save(profile=profil)
+
+class LicenseViewSet(viewsets.ModelViewSet):
+    serializer_class = LicenseSerializer
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
+
+    def get_queryset(self):
+        return License.objects.filter(profile__freelance_user=self.request.user)
+
+    def perform_create(self, serializer):
+        profil = FreeLanceProfile.objects.get(freelance_user=self.request.user)
+        serializer.save(profile=profil)
