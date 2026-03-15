@@ -56,21 +56,29 @@ class LicenseSerializer(serializers.ModelSerializer):
 class FreelanceSkillSerializer(serializers.ModelSerializer):
     skill_name = serializers.ReadOnlyField(source='skill.name')
     sector_name = serializers.ReadOnlyField(source='skill.sector.name')
-    skill = serializers.SlugRelatedField(slug_field='name', queryset=HardSkills.objects.all())
-    sector_id = serializers.IntegerField(write_only=True, required=False)
+
+    skill = serializers.CharField(write_only=True)
+    sector_id = serializers.IntegerField(write_only=True)
 
     class Meta:
         model = FreelanceSkill
         fields = ['id', 'skill', 'skill_name', 'sector_name', 'level', 'sector_id']
 
-    def to_internal_value(self, data):
-        skill_name = data.get('skill')
-        sector_id = data.get('sector_id')
-        if skill_name:
-            skill_obj, _ = HardSkills.objects.get_or_create(name=skill_name, defaults={'sector_id': sector_id})
-            data['skill'] = skill_obj.name
-        return super().to_internal_value(data)
+    def create(self, validated_data):
+        # On récupère les données proprement, Django ne les a plus effacées
+        skill_name = validated_data.pop('skill')
+        sector_id = validated_data.pop('sector_id')
 
+        # On crée ou on récupère la compétence avec son secteur
+        hard_skill_obj, created = HardSkills.objects.get_or_create(
+            name=skill_name,
+            defaults={'sector_id': sector_id}
+        )
+
+        # On attache le véritable objet à la sauvegarde
+        validated_data['skill'] = hard_skill_obj
+
+        return super().create(validated_data)
 
 class FreeLanceProfileSerializer(serializers.ModelSerializer):
     skill_levels = FreelanceSkillSerializer(many=True, read_only=True)

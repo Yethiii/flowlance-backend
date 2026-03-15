@@ -21,6 +21,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 from django.conf import settings
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from rest_framework.decorators import action
 
 User = get_user_model()
 
@@ -49,6 +50,22 @@ class FreeLanceProfileViewSet(viewsets.ModelViewSet):
         profil = serializer.save()
         profil.check_completion()
 
+    @action(detail=False, methods=['post'])
+    def deactivate(self, request):
+        profil = self.get_queryset().first()
+        if profil:
+            # 2. On désactive le profil
+            profil.freelance_is_active = False
+            profil.save()
+            return Response({"message": "Compte suspendu avec succès."})
+        return Response({"erreur": "Profil non trouvé"}, status=404)
+
+    @action(detail=False, methods=['delete'])
+    def delete_account(self, request):
+        user = request.user
+        user.delete()
+        return Response(status=204)
+
 class FreelanceSkillViewSet(viewsets.ModelViewSet):
     serializer_class = FreelanceSkillSerializer
     permission_classes = [IsAuthenticated]
@@ -57,9 +74,23 @@ class FreelanceSkillViewSet(viewsets.ModelViewSet):
         return FreelanceSkill.objects.filter(profile__freelance_user=self.request.user)
 
     def perform_create(self, serializer):
-        profil = FreeLanceProfile.objects.get(freelance_user=self.request.user)
-        serializer.save(profile=profil)
-        profil.check_completion()
+        from rest_framework.exceptions import ValidationError
+
+        try:
+            profil = FreeLanceProfile.objects.get(freelance_user=self.request.user)
+
+            skill_name = self.request.data.get('skill')
+            if FreelanceSkill.objects.filter(profile=profil, skill__name=skill_name).exists():
+                raise ValidationError({"erreur": f"Vous avez déjà ajouté la compétence {skill_name}."})
+
+            serializer.save(profile=profil)
+            profil.check_completion()
+
+        except ValidationError as v:
+            raise v
+        except Exception as e:
+            print(f"CRASH DANS LA VUE HARD SKILL: {e}")
+            raise ValidationError({"erreur_serveur": str(e)})
 
 class LanguageViewSet(viewsets.ModelViewSet):
     serializer_class = LanguageSerializer
@@ -111,14 +142,34 @@ class LicenseViewSet(viewsets.ModelViewSet):
 
 # --- 3. VUES ENTREPRISE ET OFFRES ---
 class CompanyProfileViewSet(viewsets.ModelViewSet):
-    queryset = CompanyProfile.objects.all()
     serializer_class = CompanyProfileSerializer
     permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser, JSONParser]
 
+    # 1. On verrouille : l'entreprise ne voit que SON profil
+    def get_queryset(self):
+        return CompanyProfile.objects.filter(company_user=self.request.user)
+
     def perform_update(self, serializer):
         profil = serializer.save()
         profil.check_completion()
+
+    # 2. Action de Suspension
+    @action(detail=False, methods=['post'])
+    def deactivate(self, request):
+        profil = self.get_queryset().first()
+        if profil:
+            profil.company_is_active = False
+            profil.save()
+            return Response({"message": "Compte entreprise suspendu avec succès."})
+        return Response({"erreur": "Profil non trouvé"}, status=404)
+
+    # 3. Action de Suppression définitive (Cascade)
+    @action(detail=False, methods=['delete'])
+    def delete_account(self, request):
+        user = request.user
+        user.delete() # Supprimera le profil et les annonces d'emploi liées !
+        return Response(status=204)
 
 class JobOfferViewSet(viewsets.ModelViewSet):
     serializer_class = JobOfferSerializer
