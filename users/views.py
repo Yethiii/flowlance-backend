@@ -148,8 +148,10 @@ class CompanyProfileViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser, JSONParser]
 
-    # 1. On verrouille : l'entreprise ne voit que SON profil
     def get_queryset(self):
+        if self.action in ['list', 'retrieve']:
+            return CompanyProfile.objects.filter(company_is_active=True)
+
         return CompanyProfile.objects.filter(company_user=self.request.user)
 
     def perform_update(self, serializer):
