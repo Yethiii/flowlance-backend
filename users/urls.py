@@ -7,7 +7,7 @@ from .views import (
     GenerateJobDescriptionView, GenerateCVAdviceView, JobApplicationViewSet,
     FreelanceDashboardView, CurrentUserView,
     SectorViewSet, SoftSkillsViewSet, LanguageViewSet, EducationViewSet,
-    CertificationViewSet, LicenseViewSet
+    CertificationViewSet, LicenseViewSet, HardSkillsViewSet
 )
 
 router = DefaultRouter()
@@ -23,6 +23,8 @@ router.register(r'languages', LanguageViewSet, basename='language')
 router.register(r'educations', EducationViewSet, basename='education')
 router.register(r'certifications', CertificationViewSet, basename='certification')
 router.register(r'licenses', LicenseViewSet, basename='license')
+router.register(r'hard-skills', HardSkillsViewSet, basename='hardskill')
+
 
 urlpatterns = [
     path('', include(router.urls)),

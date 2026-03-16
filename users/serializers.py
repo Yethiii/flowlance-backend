@@ -106,7 +106,7 @@ class JobOfferSerializer(serializers.ModelSerializer):
     class Meta:
         model = JobOffer
         fields = '__all__'
-        read_only_fields = ('offer_company', 'offer_created_at', 'offer_is_active')
+        read_only_fields = ('offer_company', 'offer_created_at')
 
 
 class JobApplicationSerializer(serializers.ModelSerializer):

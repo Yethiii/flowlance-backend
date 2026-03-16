@@ -6,14 +6,15 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from .models import (
     FreeLanceProfile, JobOffer, FreelanceSkill, CompanyProfile,
-    JobApplication, Sector, SoftSkills, Language, Education, Certification, License
+    JobApplication, Sector, SoftSkills, Language, Education, Certification, License,
+    HardSkills
 )
 from django.contrib.auth import get_user_model
 from .serializers import (
     FreeLanceProfileSerializer, JobOfferSerializer, UserRegistrationSerializer,
     FreelanceSkillSerializer, CompanyProfileSerializer, JobApplicationSerializer,
     SectorSerializer, SoftSkillSerializer, LanguageSerializer,
-    EducationSerializer, CertificationSerializer, LicenseSerializer
+    EducationSerializer, CertificationSerializer, LicenseSerializer, HardSkillSerializer
 )
 from .permissions import IsFreelanceRole, IsCompanyRole, IsOwnerOfProfile
 from rest_framework.exceptions import PermissionDenied, ValidationError
@@ -65,6 +66,7 @@ class FreeLanceProfileViewSet(viewsets.ModelViewSet):
         user = request.user
         user.delete()
         return Response(status=204)
+
 
 class FreelanceSkillViewSet(viewsets.ModelViewSet):
     serializer_class = FreelanceSkillSerializer
@@ -444,3 +446,9 @@ class CompanyDashboardView(APIView):
                 continue
 
         return Response({"company_dashboard": dashboard_results})
+
+class HardSkillsViewSet(viewsets.ReadOnlyModelViewSet):
+
+    queryset = HardSkills.objects.all()
+    serializer_class = HardSkillSerializer
+    permission_classes = [IsAuthenticated]
