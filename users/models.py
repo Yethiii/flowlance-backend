@@ -100,6 +100,7 @@ class FreeLanceProfile(models.Model):
     freelance_sectors = models.ManyToManyField(Sector, related_name='freelances', blank=True)
     freelance_soft_skills = models.ManyToManyField(SoftSkills, related_name='freelances', blank=True)
     freelance_cv_file = models.FileField(upload_to='cv_files/', null=True, blank=True)
+    ai_cv_advice = models.TextField(blank=True, null=True, help_text="Dernier conseil IA généré pour le CV")
 
     def check_completion(self):
         direct_fields = [

@@ -341,6 +341,9 @@ class GenerateCVAdviceView(APIView):
 
             result = response.json()
             advice_text = result['choices'][0]['message']['content']
+            profil = request.user.freelance_profile
+            profil.ai_cv_advice = advice_text
+            profil.save(update_fields=['ai_cv_advice'])
             return Response({"cv_advice": advice_text})
 
         except requests.exceptions.RequestException as e:
