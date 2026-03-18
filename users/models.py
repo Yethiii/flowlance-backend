@@ -73,6 +73,8 @@ class FreeLanceProfile(models.Model):
     )
 
     freelance_user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='freelance_profile')
+    first_name = models.CharField(max_length=100, blank=True, null=True)
+    last_name = models.CharField(max_length=100, blank=True, null=True)
     freelance_birth_date = models.DateField(null=True, blank=True)
 
     @property
@@ -105,6 +107,8 @@ class FreeLanceProfile(models.Model):
     def check_completion(self):
         direct_fields = [
             self.freelance_birth_date,
+            self.first_name,
+            self.last_name,
             self.freelance_gender,
             self.freelance_location,
             self.freelance_enterprise_number,

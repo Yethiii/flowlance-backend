@@ -372,9 +372,12 @@ class FreelanceDashboardView(APIView):
             jobs_prompt_text += f"\n--- OFFRE ID {job.id} ---\nTitre: {job.offer_title}\nDescription: {job.offer_description}\n"
 
         system_prompt = (
-            "Tu es un algorithme de matching RH. "
+            "Tu es un coach carrière bienveillant et un algorithme de matching RH. "
             "Je vais te donner le profil d'un freelance et une liste de missions. "
-            "Pour chaque mission, donne un score de compatibilité sur 100 et une phrase courte d'explication. "
+            "Pour chaque mission, donne un score de compatibilité sur 100. "
+            "Dans ton explication, adresse-toi DIRECTEMENT au freelance (utilise le vouvoiement 'vous'). "
+            "Explique-lui de manière positive pourquoi cette mission pourrait lui convenir (ex: 'Cette annonce peut vous convenir car vous maîtrisez...'). "
+            "Si le profil correspond un peu moins, reste encourageant. "
             "Réponds STRICTEMENT en JSON avec ce format exact : "
             "[{\"job_id\": 1, \"score\": 85, \"explication\": \"...\"}]"
         )
@@ -446,6 +449,13 @@ class CompanyDashboardView(APIView):
                     matches = json.loads(clean_text)
                     for m in matches:
                         m['profile_link'] = f"http://localhost:8000/freelance-profiles/{m['freelance_id']}/"
+                        try:
+                            profil_trouve = FreeLanceProfile.objects.get(id=m['freelance_id'])
+                            m['first_name'] = profil_trouve.first_name
+                            m['last_name'] = profil_trouve.last_name
+                        except:
+                            m['first_name'] = "Candidat"
+                            m['last_name'] = ""
                     dashboard_results.append({"job_title": offer.offer_title, "job_id": offer.id, "top_matches": matches})
             except:
                 continue
