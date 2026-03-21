@@ -88,6 +88,7 @@ class FreeLanceProfileSerializer(serializers.ModelSerializer):
     licenses = LicenseSerializer(many=True, read_only=True)
 
     username = serializers.ReadOnlyField(source='freelance_user.email')
+    skill_levels = FreelanceSkillSerializer(many=True, read_only=True)
 
     class Meta:
         model = FreeLanceProfile
@@ -120,6 +121,13 @@ class JobApplicationSerializer(serializers.ModelSerializer):
         validated_data['freelance'] = user.freelance_profile
         return super().create(validated_data)
 
+class CompanyJobApplicationSerializer(serializers.ModelSerializer):
+    freelance = FreeLanceProfileSerializer(read_only=True)
+    job_title = serializers.CharField(source='job_offer.offer_title', read_only=True)
+
+    class Meta:
+        model = JobApplication
+        fields = ['id', 'job_offer', 'job_title', 'freelance', 'status', 'cover_message', 'applied_at', 'rejection_message']
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)

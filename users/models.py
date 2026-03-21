@@ -329,6 +329,7 @@ class JobApplication(models.Model):
 
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='PENDING')
     cover_message = models.TextField(blank=True, null=True, help_text="Message d'accompagnement optionnel")
+    rejection_message = models.TextField(blank=True, null=True)
     applied_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

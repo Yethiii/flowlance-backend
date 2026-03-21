@@ -7,7 +7,9 @@ from .views import (
     GenerateJobDescriptionView, GenerateCVAdviceView, JobApplicationViewSet,
     FreelanceDashboardView, CurrentUserView,
     SectorViewSet, SoftSkillsViewSet, LanguageViewSet, EducationViewSet,
-    CertificationViewSet, LicenseViewSet, HardSkillsViewSet
+    CertificationViewSet, LicenseViewSet, HardSkillsViewSet, CompanyApplicationsView,
+    UpdateApplicationStatusView, GenerateRejectionMessageView
+
 )
 
 router = DefaultRouter()
@@ -34,4 +36,7 @@ urlpatterns = [
     path('cv-advice/', GenerateCVAdviceView.as_view(), name='cv-advice'),
     path('dashboard/freelance/', FreelanceDashboardView.as_view(), name='freelance-dashboard'),
     path('dashboard/company/', CompanyDashboardView.as_view(), name='company-dashboard'),
+    path('company/applications/', CompanyApplicationsView.as_view(), name='company-applications'),
+    path('applications/<int:pk>/status/', UpdateApplicationStatusView.as_view(), name='update-application-status'),
+    path('generate-rejection/', GenerateRejectionMessageView.as_view(), name='generate-rejection'),
 ]

@@ -14,7 +14,8 @@ from .serializers import (
     FreeLanceProfileSerializer, JobOfferSerializer, UserRegistrationSerializer,
     FreelanceSkillSerializer, CompanyProfileSerializer, JobApplicationSerializer,
     SectorSerializer, SoftSkillSerializer, LanguageSerializer,
-    EducationSerializer, CertificationSerializer, LicenseSerializer, HardSkillSerializer
+    EducationSerializer, CertificationSerializer, LicenseSerializer, HardSkillSerializer,
+    CompanyJobApplicationSerializer
 )
 from .permissions import IsFreelanceRole, IsCompanyRole, IsOwnerOfProfile
 from rest_framework.exceptions import PermissionDenied, ValidationError
@@ -39,12 +40,25 @@ class SoftSkillsViewSet(viewsets.ReadOnlyModelViewSet):
 
 
 # --- 2. VUES DU PROFIL FREELANCE ---
+
 class FreeLanceProfileViewSet(viewsets.ModelViewSet):
     serializer_class = FreeLanceProfileSerializer
-    permission_classes = [IsAuthenticated, IsOwnerOfProfile]
     parser_classes = [MultiPartParser, FormParser, JSONParser]
 
+    # 1. On sépare les permissions
+    def get_permissions(self):
+        if self.action in ['list', 'retrieve']:
+            # Tout utilisateur connecté peut LIRE un profil
+            return [IsAuthenticated()]
+        # Mais seul le vrai propriétaire peut MODIFIER son profil
+        return [IsAuthenticated(), IsOwnerOfProfile()]
+
+    # 2. On sépare les recherches
     def get_queryset(self):
+        if self.action in ['list', 'retrieve']:
+            # Si on lit, on autorise à trouver n'importe quel profil ACTIF
+            return FreeLanceProfile.objects.filter(freelance_is_active=True)
+        # Si on modifie, on bloque strictement sur son propre profil
         return FreeLanceProfile.objects.filter(freelance_user=self.request.user)
 
     def perform_update(self, serializer):
@@ -55,7 +69,6 @@ class FreeLanceProfileViewSet(viewsets.ModelViewSet):
     def deactivate(self, request):
         profil = self.get_queryset().first()
         if profil:
-            # 2. On désactive le profil
             profil.freelance_is_active = False
             profil.save()
             return Response({"message": "Compte suspendu avec succès."})
@@ -66,7 +79,6 @@ class FreeLanceProfileViewSet(viewsets.ModelViewSet):
         user = request.user
         user.delete()
         return Response(status=204)
-
 
 class FreelanceSkillViewSet(viewsets.ModelViewSet):
     serializer_class = FreelanceSkillSerializer
@@ -467,3 +479,95 @@ class HardSkillsViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = HardSkills.objects.all()
     serializer_class = HardSkillSerializer
     permission_classes = [IsAuthenticated]
+
+
+class CompanyApplicationsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        try:
+            # On identifie l'entreprise
+            company = request.user.company_profile
+            # On cherche ses candidatures
+            applications = JobApplication.objects.filter(job_offer__offer_company=company).order_by('-applied_at')
+
+            # On utilise le NOUVEAU sérialiseur "riche"
+            serializer = CompanyJobApplicationSerializer(applications, many=True)
+            return Response(serializer.data)
+        except Exception as e:
+            return Response({"error": "Profil entreprise introuvable."}, status=404)
+
+
+class UpdateApplicationStatusView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def patch(self, request, pk):
+        try:
+            application = JobApplication.objects.get(pk=pk, job_offer__offer_company=request.user.company_profile)
+            new_status = request.data.get('status')
+
+            if new_status in ['ACCEPTED', 'REJECTED']:
+                application.status = new_status
+                application.save()
+                return Response({"message": "Statut mis à jour avec succès", "status": new_status})
+            return Response({"error": "Statut invalide"}, status=400)
+        except JobApplication.DoesNotExist:
+            return Response({"error": "Candidature introuvable"}, status=404)
+
+
+class GenerateRejectionMessageView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
+        if user.role != 'COMPANY':
+            raise PermissionDenied("Seules les entreprises peuvent générer ce message.")
+
+        freelance_name = request.data.get('freelance_name', 'le candidat')
+        job_title = request.data.get('job_title', 'la mission')
+        draft_message = request.data.get('draft_message', '').strip()  # On récupère le texte tapé !
+
+        # Si le recruteur a déjà tapé un brouillon, l'IA le corrige et l'améliore
+        if draft_message:
+            system_prompt = (
+                "Tu es un responsable RH très professionnel et bienveillant. "
+                f"Voici un brouillon de refus écrit par un recruteur pour le candidat '{freelance_name}' concernant la mission '{job_title}'. "
+                "Ton rôle est de corriger, reformuler et améliorer ce brouillon pour qu'il soit poli, "
+                "empathique, sans fautes, et qu'il garde le vouvoiement. "
+                "Renvoie uniquement le message final prêt à être envoyé, sans fioritures ni guillemets."
+            )
+            user_prompt = f"Brouillon à améliorer :\n{draft_message}"
+
+        # Si la case est vide, l'IA crée un message par défaut
+        else:
+            system_prompt = (
+                "Tu es un responsable RH respectueux et bienveillant. "
+                "Rédige un court message (3 à 4 phrases maximum) pour informer un candidat "
+                f"que sa candidature n'a pas été retenue pour la mission '{job_title}'. "
+                "Le message doit s'adresser directement au candidat (vouvoiement), "
+                "être professionnel, empathique et l'encourager pour la suite. "
+                "Commence directement le message par 'Bonjour' suivi de son prénom, sans objet."
+            )
+            user_prompt = f"Prénom du candidat : {freelance_name}"
+
+        headers = {
+            "Authorization": f"Bearer {settings.OPENROUTER_API_KEY}",
+            "Content-Type": "application/json"
+        }
+
+        data = {
+            "model": "anthropic/claude-3-haiku",
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ]
+        }
+
+        try:
+            response = requests.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=data)
+            response.raise_for_status()
+            result = response.json()
+            generated_text = result['choices'][0]['message']['content']
+            return Response({"generated_message": generated_text})
+        except Exception as e:
+            return Response({"error": "Erreur lors de la génération IA.", "details": str(e)}, status=500)
