@@ -8,7 +8,7 @@ from .views import (
     FreelanceDashboardView, CurrentUserView,
     SectorViewSet, SoftSkillsViewSet, LanguageViewSet, EducationViewSet,
     CertificationViewSet, LicenseViewSet, HardSkillsViewSet, CompanyApplicationsView,
-    UpdateApplicationStatusView, GenerateRejectionMessageView
+    UpdateApplicationStatusView, GenerateRejectionMessageView, ConversationView
 
 )
 
@@ -39,4 +39,5 @@ urlpatterns = [
     path('company/applications/', CompanyApplicationsView.as_view(), name='company-applications'),
     path('applications/<int:pk>/status/', UpdateApplicationStatusView.as_view(), name='update-application-status'),
     path('generate-rejection/', GenerateRejectionMessageView.as_view(), name='generate-rejection'),
+    path('messages/<int:other_user_id>/', ConversationView.as_view(), name='conversation'),
 ]

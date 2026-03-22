@@ -7,7 +7,7 @@ from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from .models import (
     FreeLanceProfile, JobOffer, FreelanceSkill, CompanyProfile,
     JobApplication, Sector, SoftSkills, Language, Education, Certification, License,
-    HardSkills
+    HardSkills, Message
 )
 from django.contrib.auth import get_user_model
 from .serializers import (
@@ -15,7 +15,7 @@ from .serializers import (
     FreelanceSkillSerializer, CompanyProfileSerializer, JobApplicationSerializer,
     SectorSerializer, SoftSkillSerializer, LanguageSerializer,
     EducationSerializer, CertificationSerializer, LicenseSerializer, HardSkillSerializer,
-    CompanyJobApplicationSerializer
+    CompanyJobApplicationSerializer, MessageSerializer
 )
 from .permissions import IsFreelanceRole, IsCompanyRole, IsOwnerOfProfile
 from rest_framework.exceptions import PermissionDenied, ValidationError
@@ -24,6 +24,7 @@ from django.conf import settings
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.decorators import action
+from django.db.models import Q
 
 User = get_user_model()
 
@@ -571,3 +572,34 @@ class GenerateRejectionMessageView(APIView):
             return Response({"generated_message": generated_text})
         except Exception as e:
             return Response({"error": "Erreur lors de la génération IA.", "details": str(e)}, status=500)
+
+
+class ConversationView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, other_user_id):
+        # On récupère tous les messages entre moi et l'autre utilisateur
+        messages = Message.objects.filter(
+            Q(sender=request.user, receiver_id=other_user_id) |
+            Q(sender_id=other_user_id, receiver=request.user)
+        ).order_by('timestamp')
+
+        # Optionnel : Marquer les messages reçus comme "lus"
+        Message.objects.filter(sender_id=other_user_id, receiver=request.user, is_read=False).update(is_read=True)
+
+        serializer = MessageSerializer(messages, many=True)
+        return Response(serializer.data)
+
+    def post(self, request, other_user_id):
+        # On envoie un message à l'autre utilisateur
+        content = request.data.get('content')
+        if not content:
+            return Response({"error": "Le message ne peut pas être vide."}, status=400)
+
+        message = Message.objects.create(
+            sender=request.user,
+            receiver_id=other_user_id,
+            content=content
+        )
+        serializer = MessageSerializer(message)
+        return Response(serializer.data, status=201)

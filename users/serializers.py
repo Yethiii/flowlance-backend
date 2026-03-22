@@ -2,7 +2,7 @@ from rest_framework import serializers
 from .models import (
     User, Sector, SoftSkills, HardSkills,
     FreeLanceProfile, FreelanceSkill, CompanyProfile, JobOffer, JobApplication,
-    Education, Language, Certification, License
+    Education, Language, Certification, License, Message
 )
 from django.contrib.auth import get_user_model
 
@@ -113,8 +113,8 @@ class JobOfferSerializer(serializers.ModelSerializer):
 class JobApplicationSerializer(serializers.ModelSerializer):
     class Meta:
         model = JobApplication
-        fields = ['id', 'job_offer', 'freelance', 'status', 'cover_message', 'applied_at']
-        read_only_fields = ['id', 'freelance', 'status', 'applied_at']
+        fields = ['id', 'job_offer', 'freelance', 'status', 'cover_message', 'rejection_message', 'applied_at']
+        read_only_fields = ['id', 'freelance', 'status', 'rejection_message', 'applied_at']
 
     def create(self, validated_data):
         user = self.context['request'].user
@@ -146,3 +146,8 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
             role=validated_data.get('role', 'FREELANCE')
         )
         return user
+
+class MessageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Message
+        fields = ['id', 'sender', 'receiver', 'content', 'timestamp', 'is_read']
