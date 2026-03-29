@@ -119,7 +119,7 @@ STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
-    "https://flowlance-frontend.vercel.app/"]
+    "https://flowlance-frontend.vercel.app"]
 
 CORS_ALLOW_CREDENTIALS = True
 
