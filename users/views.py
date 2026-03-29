@@ -603,3 +603,78 @@ class ConversationView(APIView):
         )
         serializer = MessageSerializer(message)
         return Response(serializer.data, status=201)
+
+    def delete(self, request, other_user_id):
+        Message.objects.filter(
+            Q(sender=request.user, receiver_id=other_user_id) |
+            Q(sender_id=other_user_id, receiver=request.user)
+        ).delete()
+        return Response({"message": "Conversation supprimée"}, status=204)
+
+
+class NotificationCountView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        # 1. On compte les messages non lus destinés à cet utilisateur
+        unread_messages = Message.objects.filter(receiver=user, is_read=False).count()
+
+        # 2. On compte les candidatures en attente (si c'est une entreprise)
+        pending_applications = 0
+        if user.role == 'COMPANY' and hasattr(user, 'company_profile'):
+            pending_applications = JobApplication.objects.filter(
+                job_offer__offer_company=user.company_profile,
+                status='PENDING'
+            ).count()
+
+        return Response({
+            "unread_messages": unread_messages,
+            "pending_applications": pending_applications
+        })
+
+
+class ConversationListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        messages = Message.objects.filter(Q(sender=user) | Q(receiver=user)).order_by('-timestamp')
+
+        conversations = {}
+        for msg in messages:
+            other_user = msg.receiver if msg.sender == user else msg.sender
+
+            if other_user.id not in conversations:
+                name = "Utilisateur"
+                job_title = "Candidature"  # <-- Le nouveau champ !
+
+                # Récupérer le nom et la mission
+                if other_user.role == 'FREELANCE' and hasattr(other_user, 'freelance_profile'):
+                    name = f"{other_user.freelance_profile.first_name or 'Candidat'} {other_user.freelance_profile.last_name or ''}".strip()
+                    if user.role == 'COMPANY':
+                        app = JobApplication.objects.filter(job_offer__offer_company__company_user=user,
+                                                            freelance__freelance_user=other_user).first()
+                        if app: job_title = app.job_offer.offer_title
+
+                elif other_user.role == 'COMPANY' and hasattr(other_user, 'company_profile'):
+                    name = other_user.company_profile.company_name or "Entreprise"
+                    if user.role == 'FREELANCE':
+                        app = JobApplication.objects.filter(freelance__freelance_user=user,
+                                                            job_offer__offer_company__company_user=other_user).first()
+                        if app: job_title = app.job_offer.offer_title
+
+                conversations[other_user.id] = {
+                    "other_user_id": other_user.id,
+                    "name": name,
+                    "job_title": job_title,  # <-- On l'envoie à React
+                    "role": other_user.role,
+                    "last_message": msg.content,
+                    "timestamp": msg.timestamp,
+                    "unread_count": 0
+                }
+
+            if msg.receiver == user and not msg.is_read:
+                conversations[other_user.id]["unread_count"] += 1
+
+        return Response(list(conversations.values()))

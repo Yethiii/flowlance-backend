@@ -8,7 +8,8 @@ from .views import (
     FreelanceDashboardView, CurrentUserView,
     SectorViewSet, SoftSkillsViewSet, LanguageViewSet, EducationViewSet,
     CertificationViewSet, LicenseViewSet, HardSkillsViewSet, CompanyApplicationsView,
-    UpdateApplicationStatusView, GenerateRejectionMessageView, ConversationView
+    UpdateApplicationStatusView, GenerateRejectionMessageView, ConversationView,
+    NotificationCountView, ConversationListView
 
 )
 
@@ -40,4 +41,6 @@ urlpatterns = [
     path('applications/<int:pk>/status/', UpdateApplicationStatusView.as_view(), name='update-application-status'),
     path('generate-rejection/', GenerateRejectionMessageView.as_view(), name='generate-rejection'),
     path('messages/<int:other_user_id>/', ConversationView.as_view(), name='conversation'),
+    path('notifications/', NotificationCountView.as_view(), name='notifications'),
+    path('conversations/', ConversationListView.as_view(), name='conversations-list'),
 ]
