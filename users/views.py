@@ -172,10 +172,21 @@ class CompanyProfileViewSet(viewsets.ModelViewSet):
     parser_classes = [MultiPartParser, FormParser, JSONParser]
 
     def get_queryset(self):
-        if self.action in ['list', 'retrieve']:
-            return CompanyProfile.objects.filter(company_is_active=True)
+        user = self.request.user
 
-        return CompanyProfile.objects.filter(company_user=self.request.user)
+        # 1. Quand React demande "Mon Profil Entreprise" (GET /api/companies/)
+        if self.action == 'list':
+            return CompanyProfile.objects.filter(company_user=user)
+
+        # 2. Quand un freelance consulte un profil entreprise (GET /api/companies/<id>/)
+        elif self.action == 'retrieve':
+            # Le freelance le voit s'il est actif, l'entreprise le voit tout le temps
+            return CompanyProfile.objects.filter(
+                Q(company_is_active=True) | Q(company_user=user)
+            )
+
+        # 3. Pour modifier (PUT, PATCH) ou supprimer (DELETE)
+        return CompanyProfile.objects.filter(company_user=user)
 
     def perform_update(self, serializer):
         profil = serializer.save()
