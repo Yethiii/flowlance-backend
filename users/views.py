@@ -56,11 +56,21 @@ class FreeLanceProfileViewSet(viewsets.ModelViewSet):
 
     # 2. On sépare les recherches
     def get_queryset(self):
-        if self.action in ['list', 'retrieve']:
-            # Si on lit, on autorise à trouver n'importe quel profil ACTIF
-            return FreeLanceProfile.objects.filter(freelance_is_active=True)
-        # Si on modifie, on bloque strictement sur son propre profil
-        return FreeLanceProfile.objects.filter(freelance_user=self.request.user)
+        user = self.request.user
+
+        # 1. Quand React demande "Mon Profil" (GET /api/freelances/)
+        if self.action == 'list':
+            return FreeLanceProfile.objects.filter(freelance_user=user)
+
+        # 2. Quand une entreprise consulte un profil public via son ID (GET /api/freelances/<id>/)
+        elif self.action == 'retrieve':
+            # L'entreprise peut le voir s'il est actif, TOI tu peux le voir même s'il est inactif
+            return FreeLanceProfile.objects.filter(
+                Q(freelance_is_active=True) | Q(freelance_user=user)
+            )
+
+        # 3. Pour modifier (PUT, PATCH) ou supprimer (DELETE)
+        return FreeLanceProfile.objects.filter(freelance_user=user)
 
     def perform_update(self, serializer):
         profil = serializer.save()
