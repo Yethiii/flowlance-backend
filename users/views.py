@@ -260,12 +260,27 @@ class RegisterView(generics.CreateAPIView):
     permission_classes = (AllowAny,)
     serializer_class = UserRegistrationSerializer
 
+
 class CurrentUserView(APIView):
     permission_classes = [IsAuthenticated]
+
     def get(self, request):
         user = request.user
         role = getattr(user, 'role', getattr(user, 'user_type', 'FREELANCE'))
-        return Response({'id': user.id, 'email': user.email, 'role': role})
+
+        is_profile_active = False
+
+        if role == 'FREELANCE' and hasattr(user, 'freelance_profile'):
+            is_profile_active = user.freelance_profile.freelance_is_active
+        elif role == 'COMPANY' and hasattr(user, 'company_profile'):
+            is_profile_active = user.company_profile.company_is_active
+
+        return Response({
+            'id': user.id,
+            'email': user.email,
+            'role': role,
+            'is_profile_active': is_profile_active
+        })
 
 class GenerateJobDescriptionView(APIView):
     permission_classes = [IsAuthenticated]
