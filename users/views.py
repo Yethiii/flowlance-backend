@@ -456,7 +456,11 @@ class CompanyDashboardView(APIView):
         dashboard_results = []
 
         for offer in my_offers:
-            potential_candidates = FreeLanceProfile.objects.filter(freelance_sectors=offer.offer_sector).distinct()[:3]
+            potential_candidates = FreeLanceProfile.objects.filter(
+                freelance_sectors=offer.offer_sector,
+                freelance_is_active=True
+            ).distinct()[:3]
+
             if not potential_candidates:
                 continue
 
