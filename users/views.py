@@ -28,7 +28,6 @@ from django.db.models import Q
 
 User = get_user_model()
 
-# --- 1. VUES DE BASE (Secteurs et Soft Skills) ---
 class SectorViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Sector.objects.all()
     serializer_class = SectorSerializer
@@ -40,36 +39,27 @@ class SoftSkillsViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [IsAuthenticated]
 
 
-# --- 2. VUES DU PROFIL FREELANCE ---
 
 class FreeLanceProfileViewSet(viewsets.ModelViewSet):
     serializer_class = FreeLanceProfileSerializer
     parser_classes = [MultiPartParser, FormParser, JSONParser]
 
-    # 1. On sépare les permissions
     def get_permissions(self):
         if self.action in ['list', 'retrieve']:
-            # Tout utilisateur connecté peut LIRE un profil
             return [IsAuthenticated()]
-        # Mais seul le vrai propriétaire peut MODIFIER son profil
         return [IsAuthenticated(), IsOwnerOfProfile()]
 
-    # 2. On sépare les recherches
     def get_queryset(self):
         user = self.request.user
 
-        # 1. Quand React demande "Mon Profil" (GET /api/freelances/)
         if self.action == 'list':
             return FreeLanceProfile.objects.filter(freelance_user=user)
 
-        # 2. Quand une entreprise consulte un profil public via son ID (GET /api/freelances/<id>/)
         elif self.action == 'retrieve':
-            # L'entreprise peut le voir s'il est actif, TOI tu peux le voir même s'il est inactif
             return FreeLanceProfile.objects.filter(
                 Q(freelance_is_active=True) | Q(freelance_user=user)
             )
 
-        # 3. Pour modifier (PUT, PATCH) ou supprimer (DELETE)
         return FreeLanceProfile.objects.filter(freelance_user=user)
 
     def perform_update(self, serializer):
@@ -165,7 +155,6 @@ class LicenseViewSet(viewsets.ModelViewSet):
         serializer.save(profile=profil)
 
 
-# --- 3. VUES ENTREPRISE ET OFFRES ---
 class CompanyProfileViewSet(viewsets.ModelViewSet):
     serializer_class = CompanyProfileSerializer
     permission_classes = [IsAuthenticated]
@@ -174,25 +163,20 @@ class CompanyProfileViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
 
-        # 1. Quand React demande "Mon Profil Entreprise" (GET /api/companies/)
         if self.action == 'list':
             return CompanyProfile.objects.filter(company_user=user)
 
-        # 2. Quand un freelance consulte un profil entreprise (GET /api/companies/<id>/)
         elif self.action == 'retrieve':
-            # Le freelance le voit s'il est actif, l'entreprise le voit tout le temps
             return CompanyProfile.objects.filter(
                 Q(company_is_active=True) | Q(company_user=user)
             )
 
-        # 3. Pour modifier (PUT, PATCH) ou supprimer (DELETE)
         return CompanyProfile.objects.filter(company_user=user)
 
     def perform_update(self, serializer):
         profil = serializer.save()
         profil.check_completion()
 
-    # 2. Action de Suspension
     @action(detail=False, methods=['post'])
     def deactivate(self, request):
         profil = self.get_queryset().first()
@@ -202,7 +186,6 @@ class CompanyProfileViewSet(viewsets.ModelViewSet):
             return Response({"message": "Compte entreprise suspendu avec succès."})
         return Response({"erreur": "Profil non trouvé"}, status=404)
 
-    # 3. Action de Suppression définitive (Cascade)
     @action(detail=False, methods=['delete'])
     def delete_account(self, request):
         user = request.user
@@ -254,7 +237,6 @@ class JobApplicationViewSet(viewsets.ModelViewSet):
         serializer.save()
 
 
-# --- 4. AUTH & DASHBOARDS & IA ---
 class RegisterView(generics.CreateAPIView):
     queryset = User.objects.all()
     permission_classes = (AllowAny,)
@@ -527,12 +509,9 @@ class CompanyApplicationsView(APIView):
 
     def get(self, request):
         try:
-            # On identifie l'entreprise
             company = request.user.company_profile
-            # On cherche ses candidatures
             applications = JobApplication.objects.filter(job_offer__offer_company=company).order_by('-applied_at')
 
-            # On utilise le NOUVEAU sérialiseur "riche"
             serializer = CompanyJobApplicationSerializer(applications, many=True)
             return Response(serializer.data)
         except Exception as e:
@@ -566,9 +545,8 @@ class GenerateRejectionMessageView(APIView):
 
         freelance_name = request.data.get('freelance_name', 'le candidat')
         job_title = request.data.get('job_title', 'la mission')
-        draft_message = request.data.get('draft_message', '').strip()  # On récupère le texte tapé !
+        draft_message = request.data.get('draft_message', '').strip()
 
-        # Si le recruteur a déjà tapé un brouillon, l'IA le corrige et l'améliore
         if draft_message:
             system_prompt = (
                 "Tu es un responsable RH très professionnel et bienveillant. "
@@ -579,7 +557,6 @@ class GenerateRejectionMessageView(APIView):
             )
             user_prompt = f"Brouillon à améliorer :\n{draft_message}"
 
-        # Si la case est vide, l'IA crée un message par défaut
         else:
             system_prompt = (
                 "Tu es un responsable RH respectueux et bienveillant. "
@@ -618,20 +595,17 @@ class ConversationView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, other_user_id):
-        # On récupère tous les messages entre moi et l'autre utilisateur
         messages = Message.objects.filter(
             Q(sender=request.user, receiver_id=other_user_id) |
             Q(sender_id=other_user_id, receiver=request.user)
         ).order_by('timestamp')
 
-        # Optionnel : Marquer les messages reçus comme "lus"
         Message.objects.filter(sender_id=other_user_id, receiver=request.user, is_read=False).update(is_read=True)
 
         serializer = MessageSerializer(messages, many=True)
         return Response(serializer.data)
 
     def post(self, request, other_user_id):
-        # On envoie un message à l'autre utilisateur
         content = request.data.get('content')
         if not content:
             return Response({"error": "Le message ne peut pas être vide."}, status=400)
@@ -657,10 +631,8 @@ class NotificationCountView(APIView):
 
     def get(self, request):
         user = request.user
-        # 1. On compte les messages non lus destinés à cet utilisateur
         unread_messages = Message.objects.filter(receiver=user, is_read=False).count()
 
-        # 2. On compte les candidatures en attente (si c'est une entreprise)
         pending_applications = 0
         if user.role == 'COMPANY' and hasattr(user, 'company_profile'):
             pending_applications = JobApplication.objects.filter(

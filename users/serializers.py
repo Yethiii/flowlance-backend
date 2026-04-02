@@ -65,17 +65,14 @@ class FreelanceSkillSerializer(serializers.ModelSerializer):
         fields = ['id', 'skill', 'skill_name', 'sector_name', 'level', 'sector_id']
 
     def create(self, validated_data):
-        # On récupère les données proprement, Django ne les a plus effacées
         skill_name = validated_data.pop('skill')
         sector_id = validated_data.pop('sector_id')
 
-        # On crée ou on récupère la compétence avec son secteur
         hard_skill_obj, created = HardSkills.objects.get_or_create(
             name=skill_name,
             defaults={'sector_id': sector_id}
         )
 
-        # On attache le véritable objet à la sauvegarde
         validated_data['skill'] = hard_skill_obj
 
         return super().create(validated_data)
